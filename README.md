@@ -20,6 +20,7 @@ The SDK accepts the following configuration options:
 interface DomeSDKConfig {
   /** Authentication token for API requests */
   apiKey?: string;
+}
 ```
 
 ### Environment Variables
