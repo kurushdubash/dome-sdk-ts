@@ -1,3 +1,4 @@
+Dome Typescript SDK - [DomeApi.io](https://www.domeapi.io/)
 ## Installation
 
 ```bash
@@ -41,5 +42,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Authors
 
-- **Kurush Dubash** - [kurush@dome.com](mailto:kurush@dome.com)
-- **Kunal Roy** - [kunal@dome.com](mailto:kunal@dome.com)
+- **Kurush Dubash** - [kurush@dome.com](mailto:kurush@domeapi.io)
+- **Kunal Roy** - [kunal@dome.com](mailto:kunal@domeapi.io)
