@@ -1,5 +1,5 @@
 {
-  "name": "@dome/sdk",
+  "name": "@dome-api/sdk",
   "version": "0.0.1",
   "description": "The Dome SDK - A comprehensive TypeScript SDK for Dome API",
   "main": "dist/cjs/index.js",
