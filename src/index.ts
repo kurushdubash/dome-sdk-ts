@@ -1,77 +1,38 @@
-import axios, { AxiosResponse, AxiosError, AxiosRequestConfig } from 'axios';
 import { DomeSDKConfig } from './types';
+import { PolymarketClient, MatchingMarketsEndpoints } from './endpoints';
 
 /**
  * Main Dome SDK Client
  *
- * Provides a comprehensive TypeScript SDK for interacting with Dome services.
- * Features include user management, event handling, and API communication.
+ * Provides a comprehensive TypeScript SDK for interacting with Dome API.
+ * Features include market data, wallet analytics, order tracking, and cross-platform market matching.
  *
  * @example
  * ```typescript
- * import { DomeClient } from '@dome/sdk';
+ * import { DomeClient } from '@dome-api/sdk';
  *
  * const dome = new DomeClient({
  *   apiKey: 'your-api-key'
  * });
  *
- * const user = await dome.healthCheck();
+ * const marketPrice = await dome.polymarket.markets.getMarketPrice({
+ *   token_id: '1234567890'
+ * });
  * ```
  */
 export class DomeClient {
-  private readonly apiKey: string;
+  public readonly polymarket: PolymarketClient;
+  public readonly matchingMarkets: MatchingMarketsEndpoints;
 
   /**
    * Creates a new instance of the Dome SDK
    *
    * @param config - Configuration options for the SDK
    */
-  constructor(config: DomeSDKConfig = {}) {
-    this.apiKey = config.apiKey || '';
-  }
-
-  /**
-   * Makes a generic HTTP request
-   */
-  private async makeRequest<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-    endpoint: string,
-    data?: unknown,
-    options?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    try {
-      const requestConfig: any = {
-        method,
-        url: endpoint,
-        data,
-      };
-
-      if (options?.headers) {
-        requestConfig.headers = options.headers;
-      }
-
-      if (options?.timeout) {
-        requestConfig.timeout = options.timeout;
-      }
-
-      const response: AxiosResponse<AxiosResponse<T>> =
-        await axios.request(requestConfig);
-
-      return response.data;
-    } catch (error) {
-      throw error as AxiosError;
-    }
-  }
-
-  /**
-   * Performs a health check on the Dome API
-   *
-   * @returns Promise resolving to health status
-   */
-  async healthCheck(): Promise<
-    AxiosResponse<{ status: string; timestamp: string }>
-  > {
-    return this.makeRequest('GET', '/health');
+  constructor(config: DomeSDKConfig) {
+    // Initialize all endpoint modules with the same config
+    this.polymarket = new PolymarketClient(config);
+    this.matchingMarkets = new MatchingMarketsEndpoints(config);
   }
 }
 
