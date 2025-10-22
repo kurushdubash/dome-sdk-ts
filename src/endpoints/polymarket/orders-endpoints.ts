@@ -21,7 +21,7 @@ export class OrdersEndpoints extends BaseClient {
     params: GetOrdersParams,
     options?: RequestConfig
   ): Promise<OrdersResponse> {
-    const queryParams: Record<string, any> = {};
+    const queryParams: Record<string, unknown> = {};
 
     if (params.market_slug) queryParams.market_slug = params.market_slug;
     if (params.condition_id) queryParams.condition_id = params.condition_id;
@@ -33,11 +33,9 @@ export class OrdersEndpoints extends BaseClient {
     if (params.offset !== undefined) queryParams.offset = params.offset;
     if (params.user) queryParams.user = params.user;
 
-    return this.makeRequest<OrdersResponse>(
-      'GET',
-      '/polymarket/orders',
-      queryParams,
-      options
-    );
+    return this.makeRequest<OrdersResponse>('GET', '/polymarket/orders', {
+      query: queryParams,
+      ...(options ? { options } : {}),
+    });
   }
 }

@@ -26,7 +26,7 @@ export class MatchingMarketsEndpoints extends BaseClient {
     params: GetMatchingMarketsParams,
     options?: RequestConfig
   ): Promise<MatchingMarketsResponse> {
-    const queryParams: Record<string, any> = {};
+    const queryParams: Record<string, unknown> = {};
 
     if (params.polymarket_market_slug) {
       queryParams.polymarket_market_slug = params.polymarket_market_slug;
@@ -39,8 +39,10 @@ export class MatchingMarketsEndpoints extends BaseClient {
     return this.makeRequest<MatchingMarketsResponse>(
       'GET',
       '/matching-markets/sports/',
-      queryParams,
-      options
+      {
+        query: queryParams,
+        ...(options ? { options } : {}),
+      }
     );
   }
 
@@ -64,8 +66,10 @@ export class MatchingMarketsEndpoints extends BaseClient {
     return this.makeRequest<MatchingMarketsBySportResponse>(
       'GET',
       `/matching-markets/sports/${sport}/`,
-      queryParams,
-      options
+      {
+        query: queryParams,
+        ...(options ? { options } : {}),
+      }
     );
   }
 }

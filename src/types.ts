@@ -178,6 +178,12 @@ export interface ValidationError extends ApiError {
 }
 
 // ===== HTTP Client Types =====
+export interface RequestPayload {
+  query?: Record<string, unknown>;
+  body?: unknown;
+  options?: RequestConfig;
+}
+
 export interface RequestConfig {
   timeout?: number;
   headers?: Record<string, string>;
