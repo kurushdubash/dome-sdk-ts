@@ -51,9 +51,16 @@ export abstract class BaseClient {
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<ApiError>;
-      if (axiosError.response?.data) {
+      if (axiosError.response) {
+        const { status, statusText, data } = axiosError.response;
         throw new Error(
-          `API Error: ${axiosError.response.data.error} - ${axiosError.response.data.message}`
+          `API Error {
+            error: ${data?.error ?? 'UNKNOWN'}
+            message: ${data?.message ?? axiosError.message}
+            status: ${status ?? 'N/A'}
+            statusText: ${statusText ?? 'N/A'}
+            code: ${axiosError.code ?? 'N/A'}
+          }`
         );
       }
       throw new Error(`Request failed: ${axiosError.message}`);
