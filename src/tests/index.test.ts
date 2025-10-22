@@ -52,12 +52,13 @@ describe('DomeClient', () => {
       mockedAxios.request.mockResolvedValueOnce(mockResponse);
 
       const result = await sdk.polymarket.markets.getMarketPrice({
-        token_id: '1234567890',
+        token_id:
+          '21742633143463906290569050155826241533067272736897614950488156847949938836455',
       });
 
       expect(mockedAxios.request).toHaveBeenCalledWith({
         method: 'GET',
-        url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
+        url: 'https://api.domeapi.io/v1/polymarket/market-price/21742633143463906290569050155826241533067272736897614950488156847949938836455',
         headers: {
           Authorization: `Bearer ${mockApiKey}`,
           'Content-Type': 'application/json',
@@ -80,13 +81,14 @@ describe('DomeClient', () => {
       mockedAxios.request.mockResolvedValueOnce(mockResponse);
 
       const result = await sdk.polymarket.markets.getMarketPrice({
-        token_id: '1234567890',
+        token_id:
+          '21742633143463906290569050155826241533067272736897614950488156847949938836455',
         at_time: 1740000000,
       });
 
       expect(mockedAxios.request).toHaveBeenCalledWith({
         method: 'GET',
-        url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
+        url: 'https://api.domeapi.io/v1/polymarket/market-price/21742633143463906290569050155826241533067272736897614950488156847949938836455',
         headers: {
           Authorization: `Bearer ${mockApiKey}`,
           'Content-Type': 'application/json',
@@ -412,7 +414,10 @@ describe('DomeClient', () => {
       mockedAxios.request.mockRejectedValueOnce(mockError);
 
       await expect(
-        sdk.polymarket.markets.getMarketPrice({ token_id: '123' })
+        sdk.polymarket.markets.getMarketPrice({
+          token_id:
+            '21742633143463906290569050155826241533067272736897614950488156847949938836455',
+        })
       ).rejects.toThrow('Request failed: Network Error');
     });
   });

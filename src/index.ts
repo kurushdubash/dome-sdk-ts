@@ -16,7 +16,7 @@ import { PolymarketClient, MatchingMarketsEndpoints } from './endpoints';
  * });
  *
  * const marketPrice = await dome.polymarket.markets.getMarketPrice({
- *   token_id: '1234567890'
+ *   token_id: '21742633143463906290569050155826241533067272736897614950488156847949938836455'
  * });
  * ```
  */
