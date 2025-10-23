@@ -27,7 +27,8 @@ const dome = new DomeClient({
 
 // Get market price
 const marketPrice = await dome.polymarket.markets.getMarketPrice({
-  token_id: '1234567890',
+  token_id:
+    '21742633143463906290569050155826241533067272736897614950488156847949938836455',
 });
 
 console.log('Market Price:', marketPrice);
@@ -69,12 +70,14 @@ Get current or historical market prices:
 ```typescript
 // Current price
 const price = await dome.polymarket.markets.getMarketPrice({
-  token_id: '1234567890',
+  token_id:
+    '21742633143463906290569050155826241533067272736897614950488156847949938836455',
 });
 
 // Historical price
 const historicalPrice = await dome.polymarket.markets.getMarketPrice({
-  token_id: '1234567890',
+  token_id:
+    '21742633143463906290569050155826241533067272736897614950488156847949938836455',
   at_time: 1740000000, // Unix timestamp
 });
 ```
