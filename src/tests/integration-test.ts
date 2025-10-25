@@ -100,6 +100,19 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     })
   );
 
+  await runTest('Polymarket: Get Markets (no filters)', () =>
+    dome.polymarket.markets.getMarkets({
+      limit: 10,
+    })
+  );
+
+  await runTest('Polymarket: Get Markets (with filters)', () =>
+    dome.polymarket.markets.getMarkets({
+      tags: ['crypto'],
+      limit: 5,
+    })
+  );
+
   // ===== POLYMARKET ORDERS ENDPOINTS =====
   console.log('📋 Testing Polymarket Orders Endpoints...\n');
 
@@ -130,6 +143,15 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
   await runTest('Polymarket: Get Orders (by user)', () =>
     dome.polymarket.orders.getOrders({
       user: testWalletAddress,
+      limit: 10,
+    })
+  );
+
+  await runTest('Polymarket: Get Orderbook History', () =>
+    dome.polymarket.orders.getOrderbookHistory({
+      token_id: testTokenId,
+      start_time: Math.floor(Date.now() / 1000) - 86400, // 24 hours ago
+      end_time: Math.floor(Date.now() / 1000), // now
       limit: 10,
     })
   );

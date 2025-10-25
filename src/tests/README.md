@@ -32,7 +32,7 @@ yarn integration-test dome_1234567890abcdef
 
 ## What the Integration Test Does
 
-The integration test covers all SDK endpoints with various parameter combinations (12 total tests):
+The integration test covers all SDK endpoints with various parameter combinations (15 total tests):
 
 ### Polymarket Market Endpoints
 
@@ -40,6 +40,8 @@ The integration test covers all SDK endpoints with various parameter combination
 - ✅ Get market price (historical with timestamp)
 - ✅ Get candlesticks (1 hour intervals)
 - ✅ Get candlesticks (1 day intervals)
+- ✅ Get markets (no filters)
+- ✅ Get markets (with filters)
 
 ### Polymarket Wallet Endpoints
 
@@ -51,6 +53,7 @@ The integration test covers all SDK endpoints with various parameter combination
 - ✅ Get orders (by token ID)
 - ✅ Get orders (with time range and pagination)
 - ✅ Get orders (by user)
+- ✅ Get orderbook history
 
 ### Matching Markets Endpoints
 
