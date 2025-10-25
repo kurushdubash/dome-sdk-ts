@@ -132,6 +132,76 @@ export interface GetOrdersParams {
   user?: string;
 }
 
+// ===== Orderbook History Types =====
+export interface OrderbookLevel {
+  size: string;
+  price: string;
+}
+
+export interface OrderbookSnapshot {
+  asks: OrderbookLevel[];
+  bids: OrderbookLevel[];
+  hash: string;
+  minOrderSize: string;
+  negRisk: boolean;
+  assetId: string;
+  timestamp: number;
+  tickSize: string;
+  indexedAt: number;
+  market: string;
+}
+
+export interface OrderbookHistoryPagination {
+  limit: number;
+  count: number;
+  has_more: boolean;
+}
+
+export interface OrderbookHistoryResponse {
+  snapshots: OrderbookSnapshot[];
+  pagination: OrderbookHistoryPagination;
+}
+
+export interface GetOrderbookHistoryParams {
+  token_id: string;
+  start_time: number;
+  end_time: number;
+  limit?: number;
+}
+
+// ===== Markets Types =====
+export interface MarketOutcome {
+  outcome: string;
+  token_id: string;
+}
+
+export interface Market {
+  market_slug: string;
+  condition_id: string;
+  title: string;
+  description: string;
+  outcomes: MarketOutcome[];
+  start_time: number;
+  end_time: number;
+  volume: number;
+  liquidity: number;
+  tags: string[];
+  status: 'ACTIVE' | 'CLOSED' | 'RESOLVED';
+}
+
+export interface MarketsResponse {
+  markets: Market[];
+  pagination: Pagination;
+}
+
+export interface GetMarketsParams {
+  market_slug?: string[];
+  condition_id?: string[];
+  tags?: string[];
+  limit?: number;
+  offset?: number;
+}
+
 // ===== Matching Markets Types =====
 export interface KalshiMarket {
   platform: 'KALSHI';

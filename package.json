@@ -1,6 +1,6 @@
 {
   "name": "@dome-api/sdk",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "The Dome SDK - A comprehensive TypeScript SDK for Dome API",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -53,6 +53,14 @@
     }
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kurushdubash/dome-sdk-ts.git"
+  },
+  "homepage": "https://github.com/kurushdubash/dome-sdk-ts#readme",
+  "bugs": {
+    "url": "https://github.com/kurushdubash/dome-sdk-ts/issues"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.10",

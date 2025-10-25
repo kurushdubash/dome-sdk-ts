@@ -4,12 +4,14 @@ import {
   GetMarketPriceParams,
   CandlesticksResponse,
   GetCandlesticksParams,
+  MarketsResponse,
+  GetMarketsParams,
   RequestConfig,
 } from '../../types';
 
 /**
  * Market-related endpoints for the Dome API
- * Handles market price and candlestick data
+ * Handles market discovery, market price, and candlestick data
  */
 export class MarketEndpoints extends BaseClient {
   /**
@@ -68,6 +70,50 @@ export class MarketEndpoints extends BaseClient {
     return this.makeRequest<CandlesticksResponse>(
       'GET',
       `/polymarket/candlesticks/${condition_id}`,
+      queryParams,
+      options
+    );
+  }
+
+  /**
+   * Get Markets
+   *
+   * Fetches markets on Polymarket using various filters including market slug,
+   * condition ID, and tags.
+   *
+   * @param params - Parameters for filtering markets
+   * @param options - Optional request configuration
+   * @returns Promise resolving to markets data with pagination
+   */
+  async getMarkets(
+    params?: GetMarketsParams,
+    options?: RequestConfig
+  ): Promise<MarketsResponse> {
+    const queryParams: Record<string, any> = {};
+
+    if (params?.market_slug !== undefined) {
+      queryParams.market_slug = params.market_slug;
+    }
+
+    if (params?.condition_id !== undefined) {
+      queryParams.condition_id = params.condition_id;
+    }
+
+    if (params?.tags !== undefined) {
+      queryParams.tags = params.tags;
+    }
+
+    if (params?.limit !== undefined) {
+      queryParams.limit = params.limit;
+    }
+
+    if (params?.offset !== undefined) {
+      queryParams.offset = params.offset;
+    }
+
+    return this.makeRequest<MarketsResponse>(
+      'GET',
+      '/polymarket/markets',
       queryParams,
       options
     );

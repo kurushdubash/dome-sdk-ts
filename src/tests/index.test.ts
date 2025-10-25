@@ -290,6 +290,236 @@ describe('DomeClient', () => {
     });
   });
 
+  describe('getMarkets', () => {
+    it('should fetch markets successfully with no parameters', async () => {
+      const mockResponse = {
+        data: {
+          markets: [
+            {
+              market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
+              condition_id:
+                '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
+              title:
+                'Will Bitcoin be above $50,000 on July 25, 2025 at 8:00 PM ET?',
+              description: 'A prediction market about Bitcoin price',
+              outcomes: [
+                { outcome: 'Yes', token_id: '1234567890' },
+                { outcome: 'No', token_id: '0987654321' },
+              ],
+              start_time: 1640995200,
+              end_time: 1672531200,
+              volume: 1000000,
+              liquidity: 500000,
+              tags: ['crypto', 'bitcoin'],
+              status: 'ACTIVE',
+            },
+          ],
+          pagination: {
+            limit: 50,
+            offset: 0,
+            total: 100,
+            has_more: true,
+          },
+        },
+      };
+
+      mockedAxios.request.mockResolvedValueOnce(mockResponse);
+
+      const result = await sdk.polymarket.markets.getMarkets();
+
+      expect(mockedAxios.request).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.domeapi.io/v1/polymarket/markets',
+        headers: {
+          Authorization: `Bearer ${mockApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+        params: {},
+      });
+
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('should fetch markets with filtering parameters', async () => {
+      const mockResponse = {
+        data: {
+          markets: [
+            {
+              market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
+              condition_id:
+                '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
+              title:
+                'Will Bitcoin be above $50,000 on July 25, 2025 at 8:00 PM ET?',
+              description: 'A prediction market about Bitcoin price',
+              outcomes: [
+                { outcome: 'Yes', token_id: '1234567890' },
+                { outcome: 'No', token_id: '0987654321' },
+              ],
+              start_time: 1640995200,
+              end_time: 1672531200,
+              volume: 1000000,
+              liquidity: 500000,
+              tags: ['crypto', 'bitcoin'],
+              status: 'ACTIVE',
+            },
+          ],
+          pagination: {
+            limit: 10,
+            offset: 0,
+            total: 1,
+            has_more: false,
+          },
+        },
+      };
+
+      mockedAxios.request.mockResolvedValueOnce(mockResponse);
+
+      const result = await sdk.polymarket.markets.getMarkets({
+        market_slug: ['bitcoin-up-or-down-july-25-8pm-et'],
+        condition_id: [
+          '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
+        ],
+        tags: ['crypto'],
+        limit: 10,
+        offset: 0,
+      });
+
+      expect(mockedAxios.request).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.domeapi.io/v1/polymarket/markets',
+        headers: {
+          Authorization: `Bearer ${mockApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+        params: {
+          market_slug: ['bitcoin-up-or-down-july-25-8pm-et'],
+          condition_id: [
+            '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
+          ],
+          tags: ['crypto'],
+          limit: 10,
+          offset: 0,
+        },
+      });
+
+      expect(result).toEqual(mockResponse.data);
+    });
+  });
+
+  describe('getOrderbookHistory', () => {
+    it('should fetch orderbook history successfully', async () => {
+      const mockResponse = {
+        data: {
+          snapshots: [
+            {
+              asks: [
+                { size: '100', price: '0.65' },
+                { size: '200', price: '0.66' },
+              ],
+              bids: [
+                { size: '150', price: '0.64' },
+                { size: '250', price: '0.63' },
+              ],
+              hash: '0x1234567890abcdef',
+              minOrderSize: '1',
+              negRisk: false,
+              assetId: '1234567890',
+              timestamp: 1640995200000,
+              tickSize: '0.01',
+              indexedAt: 1640995201000,
+              market: 'bitcoin-up-or-down-july-25-8pm-et',
+            },
+          ],
+          pagination: {
+            limit: 50,
+            count: 1,
+            has_more: false,
+          },
+        },
+      };
+
+      mockedAxios.request.mockResolvedValueOnce(mockResponse);
+
+      const result = await sdk.polymarket.orders.getOrderbookHistory({
+        token_id: '1234567890',
+        start_time: 1640995200000,
+        end_time: 1640995800000,
+        limit: 50,
+      });
+
+      expect(mockedAxios.request).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.domeapi.io/v1/polymarket/orderbooks',
+        headers: {
+          Authorization: `Bearer ${mockApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+        params: {
+          token_id: '1234567890',
+          start_time: 1640995200000,
+          end_time: 1640995800000,
+          limit: 50,
+        },
+      });
+
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('should fetch orderbook history without limit parameter', async () => {
+      const mockResponse = {
+        data: {
+          snapshots: [
+            {
+              asks: [{ size: '100', price: '0.65' }],
+              bids: [{ size: '150', price: '0.64' }],
+              hash: '0x1234567890abcdef',
+              minOrderSize: '1',
+              negRisk: false,
+              assetId: '1234567890',
+              timestamp: 1640995200000,
+              tickSize: '0.01',
+              indexedAt: 1640995201000,
+              market: 'bitcoin-up-or-down-july-25-8pm-et',
+            },
+          ],
+          pagination: {
+            limit: 50,
+            count: 1,
+            has_more: false,
+          },
+        },
+      };
+
+      mockedAxios.request.mockResolvedValueOnce(mockResponse);
+
+      const result = await sdk.polymarket.orders.getOrderbookHistory({
+        token_id: '1234567890',
+        start_time: 1640995200000,
+        end_time: 1640995800000,
+      });
+
+      expect(mockedAxios.request).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.domeapi.io/v1/polymarket/orderbooks',
+        headers: {
+          Authorization: `Bearer ${mockApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+        params: {
+          token_id: '1234567890',
+          start_time: 1640995200000,
+          end_time: 1640995800000,
+        },
+      });
+
+      expect(result).toEqual(mockResponse.data);
+    });
+  });
+
   describe('getMatchingMarkets', () => {
     it('should fetch matching markets successfully', async () => {
       const mockResponse = {
