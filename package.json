@@ -53,6 +53,14 @@
     }
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kurushdubash/dome-sdk-ts.git"
+  },
+  "homepage": "https://github.com/kurushdubash/dome-sdk-ts#readme",
+  "bugs": {
+    "url": "https://github.com/kurushdubash/dome-sdk-ts/issues"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.10",
