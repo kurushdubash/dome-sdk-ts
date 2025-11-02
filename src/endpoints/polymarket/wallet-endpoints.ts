@@ -25,7 +25,7 @@ export class WalletEndpoints extends BaseClient {
     options?: RequestConfig
   ): Promise<WalletPnLResponse> {
     const { wallet_address, granularity, start_time, end_time } = params;
-    const queryParams: Record<string, any> = {
+    const queryParams: Record<string, unknown> = {
       granularity,
     };
 
@@ -40,8 +40,10 @@ export class WalletEndpoints extends BaseClient {
     return this.makeRequest<WalletPnLResponse>(
       'GET',
       `/polymarket/wallet/pnl/${wallet_address}`,
-      queryParams,
-      options
+      {
+        query: queryParams,
+        ...(options ? { options } : {}),
+      }
     );
   }
 }

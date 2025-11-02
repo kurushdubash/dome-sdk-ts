@@ -1,5 +1,5 @@
 import axios, { AxiosResponse, AxiosError, AxiosRequestConfig } from 'axios';
-import { DomeSDKConfig, RequestConfig, ApiError } from './types';
+import { DomeSDKConfig, RequestPayload, ApiError } from './types';
 
 /**
  * Base client class that provides common HTTP functionality
@@ -23,10 +23,11 @@ export abstract class BaseClient {
   protected async makeRequest<T>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     endpoint: string,
-    params?: Record<string, any>,
-    options?: RequestConfig
+    payload: RequestPayload = {}
   ): Promise<T> {
     try {
+      const { query, body, options } = payload;
+
       const requestConfig: AxiosRequestConfig = {
         method,
         url: `${this.baseURL}${endpoint}`,
@@ -38,21 +39,28 @@ export abstract class BaseClient {
         timeout: options?.timeout || 30000,
       };
 
-      if (params) {
-        if (method === 'GET') {
-          requestConfig.params = params;
-        } else {
-          requestConfig.data = params;
-        }
+      if (query !== undefined) {
+        requestConfig.params = query;
+      }
+
+      if (body !== undefined) {
+        requestConfig.data = body;
       }
 
       const response: AxiosResponse<T> = await axios.request(requestConfig);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<ApiError>;
-      if (axiosError.response?.data) {
+      if (axiosError.response) {
+        const { status, statusText, data } = axiosError.response;
         throw new Error(
-          `API Error: ${axiosError.response.data.error} - ${axiosError.response.data.message}`
+          `API Error {
+            error: ${data?.error ?? 'UNKNOWN'}
+            message: ${data?.message ?? axiosError.message}
+            status: ${status ?? 'N/A'}
+            statusText: ${statusText ?? 'N/A'}
+            code: ${axiosError.code ?? 'N/A'}
+          }`
         );
       }
       throw new Error(`Request failed: ${axiosError.message}`);

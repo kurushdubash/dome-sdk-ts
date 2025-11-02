@@ -31,7 +31,7 @@ export class MarketEndpoints extends BaseClient {
     options?: RequestConfig
   ): Promise<MarketPriceResponse> {
     const { token_id, at_time } = params;
-    const queryParams: Record<string, any> = {};
+    const queryParams: Record<string, unknown> = {};
 
     if (at_time !== undefined) {
       queryParams.at_time = at_time;
@@ -40,8 +40,10 @@ export class MarketEndpoints extends BaseClient {
     return this.makeRequest<MarketPriceResponse>(
       'GET',
       `/polymarket/market-price/${token_id}`,
-      queryParams,
-      options
+      {
+        query: queryParams,
+        ...(options ? { options } : {}),
+      }
     );
   }
 
@@ -60,7 +62,7 @@ export class MarketEndpoints extends BaseClient {
     options?: RequestConfig
   ): Promise<CandlesticksResponse> {
     const { condition_id, start_time, end_time, interval } = params;
-    const queryParams: Record<string, any> = {
+    const queryParams: Record<string, unknown> = {
       start_time,
       end_time,
     };
@@ -72,8 +74,10 @@ export class MarketEndpoints extends BaseClient {
     return this.makeRequest<CandlesticksResponse>(
       'GET',
       `/polymarket/candlesticks/${condition_id}`,
-      queryParams,
-      options
+      {
+        query: queryParams,
+        ...(options ? { options } : {}),
+      }
     );
   }
 
