@@ -1,5 +1,11 @@
 import { BaseClient } from '../../base-client';
-import { OrdersResponse, GetOrdersParams, RequestConfig } from '../../types';
+import {
+  OrdersResponse,
+  GetOrdersParams,
+  ActivityResponse,
+  GetActivityParams,
+  RequestConfig,
+} from '../../types';
 
 /**
  * Orders-related endpoints for the Dome API
@@ -36,6 +42,60 @@ export class OrdersEndpoints extends BaseClient {
     return this.makeRequest<OrdersResponse>(
       'GET',
       '/polymarket/orders',
+      queryParams,
+      options
+    );
+  }
+
+  /**
+   * Get Activity
+   *
+   * Fetches activity data for a specific user with optional filtering by market,
+   * condition, and time range. Returns trading activity including MERGES, SPLITS, and REDEEMS.
+   *
+   * @param params - Parameters for the activity request
+   * @param options - Optional request configuration
+   * @returns Promise resolving to activity data with pagination
+   */
+  async getActivity(
+    params: GetActivityParams,
+    options?: RequestConfig
+  ): Promise<ActivityResponse> {
+    const {
+      user,
+      start_time,
+      end_time,
+      market_slug,
+      condition_id,
+      limit,
+      offset,
+    } = params;
+    const queryParams: Record<string, any> = {
+      user,
+    };
+
+    if (start_time !== undefined) {
+      queryParams.start_time = start_time;
+    }
+    if (end_time !== undefined) {
+      queryParams.end_time = end_time;
+    }
+    if (market_slug !== undefined) {
+      queryParams.market_slug = market_slug;
+    }
+    if (condition_id !== undefined) {
+      queryParams.condition_id = condition_id;
+    }
+    if (limit !== undefined) {
+      queryParams.limit = limit;
+    }
+    if (offset !== undefined) {
+      queryParams.offset = offset;
+    }
+
+    return this.makeRequest<ActivityResponse>(
+      'GET',
+      '/polymarket/activity',
       queryParams,
       options
     );

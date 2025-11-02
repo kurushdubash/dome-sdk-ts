@@ -100,6 +100,56 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     })
   );
 
+  await runTest('Polymarket: Get Orderbooks', () =>
+    dome.polymarket.markets.getOrderbooks({
+      token_id: testTokenId,
+      start_time: Date.now() - 86400000, // 24 hours ago in milliseconds
+      end_time: Date.now(), // now in milliseconds
+      limit: 10,
+    })
+  );
+
+  await runTest('Polymarket: Get Markets (by slug)', () =>
+    dome.polymarket.markets.getMarkets({
+      market_slug: [testMarketSlug],
+      limit: 10,
+    })
+  );
+
+  await runTest('Polymarket: Get Markets (by condition ID)', () =>
+    dome.polymarket.markets.getMarkets({
+      condition_id: [testConditionId],
+      limit: 10,
+    })
+  );
+
+  await runTest('Polymarket: Get Markets (with filters)', () =>
+    dome.polymarket.markets.getMarkets({
+      status: 'open',
+      limit: 20,
+      offset: 0,
+    })
+  );
+
+  // ===== POLYMARKET WALLET ENDPOINTS =====
+  console.log('💰 Testing Polymarket Wallet Endpoints...\n');
+
+  await runTest('Polymarket: Get Wallet PnL (daily granularity)', () =>
+    dome.polymarket.wallet.getWalletPnL({
+      wallet_address: testWalletAddress,
+      granularity: 'day',
+      start_time: Math.floor(Date.now() / 1000) - 86400 * 30, // 30 days ago
+      end_time: Math.floor(Date.now() / 1000), // now
+    })
+  );
+
+  await runTest('Polymarket: Get Wallet PnL (all time)', () =>
+    dome.polymarket.wallet.getWalletPnL({
+      wallet_address: testWalletAddress,
+      granularity: 'all',
+    })
+  );
+
   // ===== POLYMARKET ORDERS ENDPOINTS =====
   console.log('📋 Testing Polymarket Orders Endpoints...\n');
 
@@ -134,6 +184,62 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     })
   );
 
+  await runTest('Polymarket: Get Activity (by user)', () =>
+    dome.polymarket.orders.getActivity({
+      user: testWalletAddress,
+      limit: 10,
+    })
+  );
+
+  await runTest('Polymarket: Get Activity (with time range)', () =>
+    dome.polymarket.orders.getActivity({
+      user: testWalletAddress,
+      start_time: Math.floor(Date.now() / 1000) - 86400 * 7, // 7 days ago
+      end_time: Math.floor(Date.now() / 1000), // now
+      limit: 20,
+    })
+  );
+
+  await runTest('Polymarket: Get Activity (by market slug)', () =>
+    dome.polymarket.orders.getActivity({
+      user: testWalletAddress,
+      market_slug: testMarketSlug,
+      limit: 10,
+    })
+  );
+
+  // ===== KALSHI ENDPOINTS =====
+  console.log('🏈 Testing Kalshi Endpoints...\n');
+
+  await runTest('Kalshi: Get Markets (no filters)', () =>
+    dome.kalshi.markets.getMarkets({
+      limit: 10,
+    })
+  );
+
+  await runTest('Kalshi: Get Markets (by status)', () =>
+    dome.kalshi.markets.getMarkets({
+      status: 'open',
+      limit: 20,
+    })
+  );
+
+  await runTest('Kalshi: Get Markets (by event ticker)', () =>
+    dome.kalshi.markets.getMarkets({
+      event_ticker: ['KXNFLGAME-25AUG16ARIDEN'],
+      limit: 10,
+    })
+  );
+
+  await runTest('Kalshi: Get Orderbooks', () =>
+    dome.kalshi.markets.getOrderbooks({
+      ticker: 'KXNFLGAME-25AUG16ARIDEN-ARI',
+      start_time: Date.now() - 86400000, // 24 hours ago in milliseconds
+      end_time: Date.now(), // now in milliseconds
+      limit: 10,
+    })
+  );
+
   // ===== MATCHING MARKETS ENDPOINTS =====
   console.log('🔗 Testing Matching Markets Endpoints...\n');
 
@@ -160,6 +266,27 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     dome.matchingMarkets.getMatchingMarketsBySport({
       sport: 'mlb',
       date: '2025-08-16',
+    })
+  );
+
+  await runTest('Matching Markets: Get by sport and date (CFB)', () =>
+    dome.matchingMarkets.getMatchingMarketsBySport({
+      sport: 'cfb',
+      date: '2025-09-14',
+    })
+  );
+
+  await runTest('Matching Markets: Get by sport and date (NBA)', () =>
+    dome.matchingMarkets.getMatchingMarketsBySport({
+      sport: 'nba',
+      date: '2025-11-15',
+    })
+  );
+
+  await runTest('Matching Markets: Get by sport and date (NHL)', () =>
+    dome.matchingMarkets.getMatchingMarketsBySport({
+      sport: 'nhl',
+      date: '2025-10-20',
     })
   );
 

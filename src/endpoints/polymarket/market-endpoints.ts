@@ -4,6 +4,10 @@ import {
   GetMarketPriceParams,
   CandlesticksResponse,
   GetCandlesticksParams,
+  PolymarketOrderbooksResponse,
+  GetPolymarketOrderbooksParams,
+  MarketsResponse,
+  GetMarketsParams,
   RequestConfig,
 } from '../../types';
 
@@ -68,6 +72,94 @@ export class MarketEndpoints extends BaseClient {
     return this.makeRequest<CandlesticksResponse>(
       'GET',
       `/polymarket/candlesticks/${condition_id}`,
+      queryParams,
+      options
+    );
+  }
+
+  /**
+   * Get Orderbook History
+   *
+   * Fetches historical orderbook snapshots for a specific asset (token ID)
+   * over a specified time range. Returns snapshots of the order book including
+   * bids, asks, and market metadata. All timestamps are in milliseconds.
+   *
+   * @param params - Parameters for the orderbook request
+   * @param options - Optional request configuration
+   * @returns Promise resolving to orderbook history data
+   */
+  async getOrderbooks(
+    params: GetPolymarketOrderbooksParams,
+    options?: RequestConfig
+  ): Promise<PolymarketOrderbooksResponse> {
+    const { token_id, start_time, end_time, limit, pagination_key } = params;
+    const queryParams: Record<string, any> = {
+      token_id,
+      start_time,
+      end_time,
+    };
+
+    if (limit !== undefined) {
+      queryParams.limit = limit;
+    }
+
+    if (pagination_key !== undefined) {
+      queryParams.pagination_key = pagination_key;
+    }
+
+    return this.makeRequest<PolymarketOrderbooksResponse>(
+      'GET',
+      '/polymarket/orderbooks',
+      queryParams,
+      options
+    );
+  }
+
+  /**
+   * Get Markets
+   *
+   * Fetches market data with optional filtering and search functionality.
+   * Supports filtering by market slug, condition ID, or tags, as well as
+   * fuzzy search across market titles and descriptions.
+   *
+   * @param params - Parameters for the markets request
+   * @param options - Optional request configuration
+   * @returns Promise resolving to markets data with pagination
+   */
+  async getMarkets(
+    params: GetMarketsParams,
+    options?: RequestConfig
+  ): Promise<MarketsResponse> {
+    const queryParams: Record<string, any> = {};
+
+    if (params.market_slug) {
+      queryParams.market_slug = params.market_slug;
+    }
+    if (params.event_slug) {
+      queryParams.event_slug = params.event_slug;
+    }
+    if (params.condition_id) {
+      queryParams.condition_id = params.condition_id;
+    }
+    if (params.tags) {
+      queryParams.tags = params.tags;
+    }
+    if (params.status !== undefined) {
+      queryParams.status = params.status;
+    }
+    if (params.min_volume !== undefined) {
+      queryParams.min_volume = params.min_volume;
+    }
+    if (params.limit !== undefined) {
+      queryParams.limit = params.limit;
+    }
+    if (params.offset !== undefined) {
+      queryParams.offset = params.offset;
+    }
+
+    return this.makeRequest<MarketsResponse>(
+      'GET',
+      '/polymarket/markets',
       queryParams,
       options
     );

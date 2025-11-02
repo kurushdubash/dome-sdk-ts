@@ -1,5 +1,9 @@
 import { DomeSDKConfig } from './types';
-import { PolymarketClient, MatchingMarketsEndpoints } from './endpoints';
+import {
+  PolymarketClient,
+  MatchingMarketsEndpoints,
+  KalshiClient,
+} from './endpoints';
 
 /**
  * Main Dome SDK Client
@@ -23,6 +27,7 @@ import { PolymarketClient, MatchingMarketsEndpoints } from './endpoints';
 export class DomeClient {
   public readonly polymarket: PolymarketClient;
   public readonly matchingMarkets: MatchingMarketsEndpoints;
+  public readonly kalshi: KalshiClient;
 
   /**
    * Creates a new instance of the Dome SDK
@@ -33,6 +38,7 @@ export class DomeClient {
     // Initialize all endpoint modules with the same config
     this.polymarket = new PolymarketClient(config);
     this.matchingMarkets = new MatchingMarketsEndpoints(config);
+    this.kalshi = new KalshiClient(config);
   }
 }
 
