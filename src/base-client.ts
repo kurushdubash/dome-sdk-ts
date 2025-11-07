@@ -40,6 +40,18 @@ export abstract class BaseClient {
 
       if (params) {
         if (method === 'GET') {
+          // Ensure arrays are serialized as repeated query params (explode: true format)
+          requestConfig.paramsSerializer = p => {
+            const searchParams = new URLSearchParams();
+            for (const [key, value] of Object.entries(p)) {
+              if (Array.isArray(value)) {
+                value.forEach(item => searchParams.append(key, String(item)));
+              } else if (value !== undefined && value !== null) {
+                searchParams.append(key, String(value));
+              }
+            }
+            return searchParams.toString();
+          };
           requestConfig.params = params;
         } else {
           requestConfig.data = params;

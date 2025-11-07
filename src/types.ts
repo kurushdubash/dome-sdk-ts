@@ -217,22 +217,29 @@ export interface GetPolymarketOrderbooksParams {
 }
 
 // ===== Markets Types =====
-export interface MarketOutcome {
-  outcome: string;
-  token_id: string;
+export interface MarketSide {
+  id: string;
+  label: string;
 }
 
 export interface PolymarketMarketInfo {
   market_slug: string;
   condition_id: string;
   title: string;
-  description: string;
-  outcomes: MarketOutcome[];
   start_time: number;
   end_time: number;
-  volume: number;
-  liquidity: number;
+  completed_time: number | null;
+  close_time: number | null;
   tags: string[];
+  volume_1_week: number;
+  volume_1_month: number;
+  volume_1_year: number;
+  volume_total: number;
+  resolution_source: string;
+  image: string;
+  side_a: MarketSide;
+  side_b: MarketSide;
+  winning_side: MarketSide | null;
   status: 'open' | 'closed';
 }
 

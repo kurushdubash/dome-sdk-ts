@@ -116,6 +116,160 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     })
   );
 
+  // Comprehensive validation test for markets endpoint
+  // This test validates the exact curl request:
+  // curl --request GET \
+  //   --url 'https://api.domeapi.io/v1/polymarket/markets?limit=10&market_slug=bitcoin-up-or-down-july-25-8pm-et'
+  // And ensures all fields in the response match the expected structure
+  await runTest('Polymarket: Get Markets - Full Field Validation', async () => {
+    const response = await dome.polymarket.markets.getMarkets({
+      market_slug: ['bitcoin-up-or-down-july-25-8pm-et'],
+      limit: 10,
+    });
+
+    // Validate response structure
+    if (!response.markets || !Array.isArray(response.markets)) {
+      throw new Error('Response must have markets array');
+    }
+
+    if (!response.pagination) {
+      throw new Error('Response must have pagination object');
+    }
+
+    // Validate pagination fields
+    const { pagination } = response;
+    if (typeof pagination.limit !== 'number') {
+      throw new Error('pagination.limit must be a number');
+    }
+    if (typeof pagination.offset !== 'number') {
+      throw new Error('pagination.offset must be a number');
+    }
+    if (typeof pagination.total !== 'number') {
+      throw new Error('pagination.total must be a number');
+    }
+    if (typeof pagination.has_more !== 'boolean') {
+      throw new Error('pagination.has_more must be a boolean');
+    }
+
+    // Validate each market in the response
+    for (const market of response.markets) {
+      // Required string fields
+      if (typeof market.market_slug !== 'string' || !market.market_slug) {
+        throw new Error('market.market_slug must be a non-empty string');
+      }
+      if (typeof market.condition_id !== 'string' || !market.condition_id) {
+        throw new Error('market.condition_id must be a non-empty string');
+      }
+      if (typeof market.title !== 'string' || !market.title) {
+        throw new Error('market.title must be a non-empty string');
+      }
+
+      // Required number fields (timestamps)
+      if (typeof market.start_time !== 'number') {
+        throw new Error('market.start_time must be a number');
+      }
+      if (typeof market.end_time !== 'number') {
+        throw new Error('market.end_time must be a number');
+      }
+
+      // Nullable timestamp fields
+      if (
+        market.completed_time !== null &&
+        typeof market.completed_time !== 'number'
+      ) {
+        throw new Error('market.completed_time must be a number or null');
+      }
+      if (market.close_time !== null && typeof market.close_time !== 'number') {
+        throw new Error('market.close_time must be a number or null');
+      }
+
+      // Tags array
+      if (!Array.isArray(market.tags)) {
+        throw new Error('market.tags must be an array');
+      }
+      market.tags.forEach((tag, index) => {
+        if (typeof tag !== 'string') {
+          throw new Error(`market.tags[${index}] must be a string`);
+        }
+      });
+
+      // Volume fields
+      if (typeof market.volume_1_week !== 'number') {
+        throw new Error('market.volume_1_week must be a number');
+      }
+      if (typeof market.volume_1_month !== 'number') {
+        throw new Error('market.volume_1_month must be a number');
+      }
+      if (typeof market.volume_1_year !== 'number') {
+        throw new Error('market.volume_1_year must be a number');
+      }
+      if (typeof market.volume_total !== 'number') {
+        throw new Error('market.volume_total must be a number');
+      }
+
+      // String fields
+      if (typeof market.resolution_source !== 'string') {
+        throw new Error('market.resolution_source must be a string');
+      }
+      if (typeof market.image !== 'string') {
+        throw new Error('market.image must be a string');
+      }
+
+      // Side objects
+      if (!market.side_a || typeof market.side_a !== 'object') {
+        throw new Error('market.side_a must be an object');
+      }
+      if (typeof market.side_a.id !== 'string' || !market.side_a.id) {
+        throw new Error('market.side_a.id must be a non-empty string');
+      }
+      if (typeof market.side_a.label !== 'string' || !market.side_a.label) {
+        throw new Error('market.side_a.label must be a non-empty string');
+      }
+
+      if (!market.side_b || typeof market.side_b !== 'object') {
+        throw new Error('market.side_b must be an object');
+      }
+      if (typeof market.side_b.id !== 'string' || !market.side_b.id) {
+        throw new Error('market.side_b.id must be a non-empty string');
+      }
+      if (typeof market.side_b.label !== 'string' || !market.side_b.label) {
+        throw new Error('market.side_b.label must be a non-empty string');
+      }
+
+      // Winning side (nullable object)
+      if (market.winning_side !== null) {
+        if (!market.winning_side || typeof market.winning_side !== 'object') {
+          throw new Error('market.winning_side must be an object or null');
+        }
+        if (
+          typeof market.winning_side.id !== 'string' ||
+          !market.winning_side.id
+        ) {
+          throw new Error(
+            'market.winning_side.id must be a non-empty string when winning_side is not null'
+          );
+        }
+        if (
+          typeof market.winning_side.label !== 'string' ||
+          !market.winning_side.label
+        ) {
+          throw new Error(
+            'market.winning_side.label must be a non-empty string when winning_side is not null'
+          );
+        }
+      }
+
+      // Status enum
+      if (market.status !== 'open' && market.status !== 'closed') {
+        throw new Error(
+          `market.status must be 'open' or 'closed', got: ${market.status}`
+        );
+      }
+    }
+
+    return response;
+  });
+
   await runTest('Polymarket: Get Markets (by condition ID)', () =>
     dome.polymarket.markets.getMarkets({
       condition_id: [testConditionId],

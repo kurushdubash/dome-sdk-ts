@@ -119,8 +119,9 @@ export class MarketEndpoints extends BaseClient {
    * Get Markets
    *
    * Fetches market data with optional filtering and search functionality.
-   * Supports filtering by market slug, condition ID, or tags, as well as
-   * fuzzy search across market titles and descriptions.
+   * Supports filtering by market slug, event slug, condition ID, or tags.
+   * Returns markets ordered by volume (most popular first) when filters are applied,
+   * or by start_time (most recent first) when no filters are provided.
    *
    * @param params - Parameters for the markets request
    * @param options - Optional request configuration

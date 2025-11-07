@@ -55,16 +55,19 @@ describe('DomeClient', () => {
         token_id: '1234567890',
       });
 
-      expect(mockedAxios.request).toHaveBeenCalledWith({
-        method: 'GET',
-        url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
-        headers: {
-          Authorization: `Bearer ${mockApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-        params: {},
-      });
+      expect(mockedAxios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
+          headers: {
+            Authorization: `Bearer ${mockApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+          params: {},
+          paramsSerializer: expect.any(Function),
+        })
+      );
 
       expect(result).toEqual(mockResponse.data);
     });
@@ -84,16 +87,19 @@ describe('DomeClient', () => {
         at_time: 1740000000,
       });
 
-      expect(mockedAxios.request).toHaveBeenCalledWith({
-        method: 'GET',
-        url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
-        headers: {
-          Authorization: `Bearer ${mockApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-        params: { at_time: 1740000000 },
-      });
+      expect(mockedAxios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
+          headers: {
+            Authorization: `Bearer ${mockApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+          params: { at_time: 1740000000 },
+          paramsSerializer: expect.any(Function),
+        })
+      );
 
       expect(result).toEqual(mockResponse.data);
     });
@@ -165,20 +171,23 @@ describe('DomeClient', () => {
         interval: 60,
       });
 
-      expect(mockedAxios.request).toHaveBeenCalledWith({
-        method: 'GET',
-        url: 'https://api.domeapi.io/v1/polymarket/candlesticks/0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
-        headers: {
-          Authorization: `Bearer ${mockApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-        params: {
-          start_time: 1640995200,
-          end_time: 1672531200,
-          interval: 60,
-        },
-      });
+      expect(mockedAxios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.domeapi.io/v1/polymarket/candlesticks/0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
+          headers: {
+            Authorization: `Bearer ${mockApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+          params: {
+            start_time: 1640995200,
+            end_time: 1672531200,
+            interval: 60,
+          },
+          paramsSerializer: expect.any(Function),
+        })
+      );
 
       expect(result).toEqual(mockResponse.data);
     });
@@ -210,20 +219,23 @@ describe('DomeClient', () => {
         end_time: 1758316829,
       });
 
-      expect(mockedAxios.request).toHaveBeenCalledWith({
-        method: 'GET',
-        url: 'https://api.domeapi.io/v1/polymarket/wallet/pnl/0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
-        headers: {
-          Authorization: `Bearer ${mockApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-        params: {
-          granularity: 'day',
-          start_time: 1726857600,
-          end_time: 1758316829,
-        },
-      });
+      expect(mockedAxios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.domeapi.io/v1/polymarket/wallet/pnl/0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+          headers: {
+            Authorization: `Bearer ${mockApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+          params: {
+            granularity: 'day',
+            start_time: 1726857600,
+            end_time: 1758316829,
+          },
+          paramsSerializer: expect.any(Function),
+        })
+      );
 
       expect(result).toEqual(mockResponse.data);
     });
@@ -271,20 +283,23 @@ describe('DomeClient', () => {
         offset: 0,
       });
 
-      expect(mockedAxios.request).toHaveBeenCalledWith({
-        method: 'GET',
-        url: 'https://api.domeapi.io/v1/polymarket/orders',
-        headers: {
-          Authorization: `Bearer ${mockApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-        params: {
-          market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
-          limit: 50,
-          offset: 0,
-        },
-      });
+      expect(mockedAxios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.domeapi.io/v1/polymarket/orders',
+          headers: {
+            Authorization: `Bearer ${mockApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+          params: {
+            market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
+            limit: 50,
+            offset: 0,
+          },
+          paramsSerializer: expect.any(Function),
+        })
+      );
 
       expect(result).toEqual(mockResponse.data);
     });
@@ -323,18 +338,21 @@ describe('DomeClient', () => {
         polymarket_market_slug: ['nfl-ari-den-2025-08-16'],
       });
 
-      expect(mockedAxios.request).toHaveBeenCalledWith({
-        method: 'GET',
-        url: 'https://api.domeapi.io/v1/matching-markets/sports/',
-        headers: {
-          Authorization: `Bearer ${mockApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-        params: {
-          polymarket_market_slug: ['nfl-ari-den-2025-08-16'],
-        },
-      });
+      expect(mockedAxios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.domeapi.io/v1/matching-markets/sports/',
+          headers: {
+            Authorization: `Bearer ${mockApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+          params: {
+            polymarket_market_slug: ['nfl-ari-den-2025-08-16'],
+          },
+          paramsSerializer: expect.any(Function),
+        })
+      );
 
       expect(result).toEqual(mockResponse.data);
     });
@@ -368,18 +386,21 @@ describe('DomeClient', () => {
         date: '2025-08-16',
       });
 
-      expect(mockedAxios.request).toHaveBeenCalledWith({
-        method: 'GET',
-        url: 'https://api.domeapi.io/v1/matching-markets/sports/nfl/',
-        headers: {
-          Authorization: `Bearer ${mockApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-        params: {
-          date: '2025-08-16',
-        },
-      });
+      expect(mockedAxios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.domeapi.io/v1/matching-markets/sports/nfl/',
+          headers: {
+            Authorization: `Bearer ${mockApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+          params: {
+            date: '2025-08-16',
+          },
+          paramsSerializer: expect.any(Function),
+        })
+      );
 
       expect(result).toEqual(mockResponse.data);
     });
