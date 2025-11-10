@@ -2,3 +2,4 @@
 export { MarketEndpoints } from './market-endpoints';
 export { WalletEndpoints } from './wallet-endpoints';
 export { OrdersEndpoints } from './orders-endpoints';
+export { PolymarketWebSocketClient } from './websocket-client';

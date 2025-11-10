@@ -361,3 +361,57 @@ export interface RequestConfig {
   timeout?: number;
   headers?: Record<string, string>;
 }
+
+// ===== WebSocket Types =====
+export interface WebSocketSubscriptionFilters {
+  users: string[];
+}
+
+export interface WebSocketSubscribeMessage {
+  action: 'subscribe';
+  platform: 'polymarket';
+  version: 1;
+  type: 'orders';
+  filters: WebSocketSubscriptionFilters;
+}
+
+export interface WebSocketUnsubscribeMessage {
+  action: 'unsubscribe';
+  version: 1;
+  subscription_id: string;
+}
+
+export interface WebSocketAckMessage {
+  type: 'ack';
+  subscription_id: string;
+}
+
+export interface WebSocketEventMessage {
+  type: 'event';
+  subscription_id: string;
+  data: Order;
+}
+
+export type WebSocketMessage = WebSocketAckMessage | WebSocketEventMessage;
+
+export interface WebSocketConfig {
+  /** WebSocket server URL (defaults to wss://ws.domeapi.io) */
+  wsURL?: string;
+  /** Reconnection settings */
+  reconnect?: {
+    /** Whether to automatically reconnect on disconnect (default: true) */
+    enabled?: boolean;
+    /** Maximum number of reconnection attempts with exponential backoff (default: 10) */
+    maxAttempts?: number;
+    /** Base delay in milliseconds for exponential backoff (default: 1000).
+     * Actual delay = baseDelay * 2^(attempt-1), so attempts will be at:
+     * 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 512s for 10 attempts */
+    delay?: number;
+  };
+  /** Callback for connection open */
+  onOpen?: () => void;
+  /** Callback for connection close */
+  onClose?: () => void;
+  /** Callback for connection errors */
+  onError?: (error: Error) => void;
+}
