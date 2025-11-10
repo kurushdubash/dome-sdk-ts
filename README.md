@@ -367,6 +367,243 @@ const activityByCondition = await dome.polymarket.orders.getActivity({
 }
 ```
 
+#### WebSocket - Real-time Order Events
+
+Subscribe to real-time Polymarket order data via WebSocket. Perfect for copy-trading applications where speed is critical.
+
+##### Basic Usage
+
+```typescript
+// Create a WebSocket client
+const ws = dome.polymarket.createWebSocket();
+
+// Connect to the WebSocket server
+await ws.connect();
+
+// Subscribe to orders for specific wallet addresses
+const subscription = await ws.subscribe({
+  users: [
+    '0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d',
+    '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+  ],
+});
+
+console.log('Subscribed with ID:', subscription.subscription_id);
+
+// Listen for order events
+ws.on('order', order => {
+  console.log('New order received:', {
+    token_id: order.token_id,
+    side: order.side,
+    market_slug: order.market_slug,
+    price: order.price,
+    shares: order.shares_normalized,
+    user: order.user,
+    timestamp: order.timestamp,
+  });
+});
+
+// Listen for connection events
+ws.on('open', () => {
+  console.log('WebSocket connected');
+});
+
+ws.on('close', () => {
+  console.log('WebSocket disconnected');
+});
+
+ws.on('error', error => {
+  console.error('WebSocket error:', error);
+});
+```
+
+##### Configuration Options
+
+Configure reconnection behavior and event handlers:
+
+```typescript
+const ws = dome.polymarket.createWebSocket({
+  // Custom WebSocket URL (defaults to wss://ws.domeapi.io)
+  wsURL: 'wss://ws.domeapi.io',
+
+  // Reconnection settings
+  reconnect: {
+    enabled: true, // Enable automatic reconnection (default: true)
+    maxAttempts: 10, // Maximum reconnection attempts (default: 10)
+    delay: 1000, // Base delay in milliseconds for exponential backoff (default: 1000)
+    // Reconnection delays: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 512s
+  },
+
+  // Event callbacks
+  onOpen: () => {
+    console.log('Connection opened');
+  },
+  onClose: () => {
+    console.log('Connection closed');
+  },
+  onError: error => {
+    console.error('Connection error:', error);
+  },
+});
+```
+
+##### Managing Subscriptions
+
+```typescript
+// Subscribe to multiple users
+const sub1 = await ws.subscribe({
+  users: ['0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d'],
+});
+
+const sub2 = await ws.subscribe({
+  users: ['0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'],
+});
+
+// Get all active subscriptions
+const activeSubscriptions = ws.getActiveSubscriptions();
+console.log('Active subscriptions:', activeSubscriptions);
+// [
+//   {
+//     subscription_id: 'sub_abc123',
+//     filters: { users: ['0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d'] }
+//   },
+//   {
+//     subscription_id: 'sub_def456',
+//     filters: { users: ['0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'] }
+//   }
+// ]
+
+// Unsubscribe from a specific subscription
+await ws.unsubscribe(sub1.subscription_id);
+
+// Check connection status
+if (ws.isConnected()) {
+  console.log('WebSocket is connected');
+}
+
+// Close the connection (automatically unsubscribes from all subscriptions)
+ws.close();
+```
+
+##### Automatic Reconnection
+
+The SDK automatically handles reconnection with exponential backoff:
+
+- **Automatic reconnection**: Enabled by default
+- **Exponential backoff**: Delays increase exponentially (1s, 2s, 4s, 8s, etc.)
+- **Max attempts**: Default 10 attempts (configurable)
+- **Auto re-subscription**: All subscriptions are automatically re-established after reconnection
+
+```typescript
+// Disable auto-reconnection if needed
+const ws = dome.polymarket.createWebSocket({
+  reconnect: {
+    enabled: false,
+  },
+});
+
+// Or customize reconnection behavior
+const ws = dome.polymarket.createWebSocket({
+  reconnect: {
+    enabled: true,
+    maxAttempts: 5, // Only try 5 times
+    delay: 2000, // Start with 2 second delays
+  },
+});
+```
+
+##### Order Event Data
+
+Order events match the format of the orders API endpoint:
+
+```typescript
+ws.on('order', order => {
+  // Order object structure:
+  console.log({
+    token_id: order.token_id, // Token ID
+    side: order.side, // 'BUY' or 'SELL'
+    market_slug: order.market_slug, // Market identifier
+    condition_id: order.condition_id, // Condition ID
+    shares: order.shares, // Raw shares amount
+    shares_normalized: order.shares_normalized, // Normalized shares
+    price: order.price, // Price (0-1)
+    tx_hash: order.tx_hash, // Transaction hash
+    title: order.title, // Market title
+    timestamp: order.timestamp, // Unix timestamp
+    order_hash: order.order_hash, // Order hash
+    user: order.user, // User wallet address
+  });
+});
+```
+
+##### Complete Example
+
+```typescript
+import { DomeClient } from '@dome-api/sdk';
+
+const dome = new DomeClient({
+  apiKey: 'your-api-key',
+});
+
+async function trackOrders() {
+  const ws = dome.polymarket.createWebSocket({
+    reconnect: {
+      enabled: true,
+      maxAttempts: 10,
+    },
+  });
+
+  // Handle connection events
+  ws.on('open', () => {
+    console.log('✅ Connected to WebSocket');
+  });
+
+  ws.on('close', () => {
+    console.log('❌ Disconnected from WebSocket');
+  });
+
+  ws.on('error', error => {
+    console.error('⚠️ WebSocket error:', error.message);
+  });
+
+  // Connect
+  await ws.connect();
+
+  // Subscribe to orders
+  const subscription = await ws.subscribe({
+    users: ['0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d'],
+  });
+
+  console.log(`📡 Subscribed: ${subscription.subscription_id}`);
+
+  // Handle incoming orders
+  ws.on('order', order => {
+    console.log(`📦 New ${order.side} order:`, {
+      market: order.market_slug,
+      price: order.price,
+      shares: order.shares_normalized,
+      user: order.user,
+    });
+  });
+
+  // Keep the process alive
+  // In a real application, you might want to keep this running
+  // process.on('SIGINT', () => {
+  //   ws.close();
+  //   process.exit(0);
+  // });
+}
+
+trackOrders().catch(console.error);
+```
+
+**Important Notes:**
+
+- The WebSocket server only supports receiving order information (no user inputs besides subscribe/unsubscribe)
+- If disconnected, the SDK automatically reconnects and re-subscribes to all previous subscriptions
+- Order event data follows the same format as the [orders API endpoint](https://docs.domeapi.io/api-reference/endpoint/get-trade-history)
+- Subscriptions are tracked internally and can be managed via `getActiveSubscriptions()`
+
 ### Kalshi
 
 #### Markets
