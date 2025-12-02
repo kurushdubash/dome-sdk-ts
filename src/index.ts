@@ -45,5 +45,11 @@ export class DomeClient {
 // Re-export types for convenience
 export * from './types';
 
+// Re-export router helpers
+export * from './router';
+
+// Re-export utility helpers
+export * from './utils/privy';
+
 // Default export
 export default DomeClient;
