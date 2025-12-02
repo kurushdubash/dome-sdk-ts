@@ -415,3 +415,93 @@ export interface WebSocketConfig {
   /** Callback for connection errors */
   onError?: (error: Error) => void;
 }
+
+// ===== Router Types (Wallet-Agnostic) =====
+
+/**
+ * EIP-712 payload shape used by Dome router / Polymarket
+ * This is the structure that needs to be signed by the user's wallet
+ */
+export interface Eip712Payload {
+  /** Domain information for EIP-712 signing */
+  domain: Record<string, any>;
+  /** Types definition for the structured data */
+  types: Record<string, Array<{ name: string; type: string }>>;
+  /** Primary type being signed */
+  primaryType: string;
+  /** The actual message data to be signed */
+  message: Record<string, any>;
+}
+
+/**
+ * Minimal interface your SDK needs from any wallet implementation
+ * This keeps the SDK wallet-agnostic (works with Privy, MetaMask, RainbowKit, etc.)
+ */
+export interface RouterSigner {
+  /** Returns the EVM address of the user wallet */
+  getAddress(): Promise<string>;
+  /** Signs EIP-712 typed data and returns a 0x-prefixed signature */
+  signTypedData(payload: Eip712Payload): Promise<string>;
+}
+
+/**
+ * One-time setup to link a user to Polymarket via Dome router
+ * This establishes the connection between your user and their Polymarket account
+ */
+export interface LinkPolymarketUserParams {
+  /** Customer's internal user ID in your system */
+  userId: string;
+  /** Wallet/signing implementation (Privy, MetaMask, etc.) */
+  signer: RouterSigner;
+}
+
+/**
+ * High-level order interface for routing via Dome backend
+ * Abstracts away Polymarket CLOB specifics
+ */
+export interface PlaceOrderParams {
+  /** Your internal user ID */
+  userId: string;
+  /** Market identifier (platform-specific) */
+  marketId: string;
+  /** Order side */
+  side: 'buy' | 'sell';
+  /** Order size (normalized) */
+  size: number;
+  /** Order price (0-1 for Polymarket) */
+  price: number;
+  /** Wallet/signing implementation (required for signing orders) */
+  signer: RouterSigner;
+  /** Optional: Privy wallet ID (if using Privy, avoids need for signer) */
+  privyWalletId?: string;
+  /** Optional: Wallet address (if using Privy, avoids need for signer) */
+  walletAddress?: string;
+}
+
+/**
+ * Privy configuration for automatic signer creation
+ */
+export interface PrivyRouterConfig {
+  /** Privy App ID */
+  appId: string;
+  /** Privy App Secret */
+  appSecret: string;
+  /** Privy Authorization Private Key (wallet-auth:...) */
+  authorizationKey: string;
+}
+
+/**
+ * Configuration for Polymarket router helper
+ */
+export interface PolymarketRouterConfig {
+  /** Chain ID (137 for Polygon mainnet, 80002 for Amoy testnet) */
+  chainId?: number;
+  /** Polymarket CLOB endpoint (defaults to https://clob.polymarket.com) */
+  clobEndpoint?: string;
+  /** Optional: Privy configuration for automatic signer creation */
+  privy?: PrivyRouterConfig;
+  /** @deprecated Use chainId and clobEndpoint instead */
+  baseURL?: string;
+  /** @deprecated Not used in v0 (direct CLOB integration) */
+  apiKey?: string;
+}

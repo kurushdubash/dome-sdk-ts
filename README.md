@@ -777,6 +777,183 @@ const matchingMarketsBySport =
 }
 ```
 
+## Router Integration (Wallet-Agnostic Trading)
+
+The SDK includes router helpers for integrating prediction market trading into your application with any wallet provider (Privy, MetaMask, WalletConnect, etc.).
+
+### Quick Start with Privy (Server-Side)
+
+For backends using Privy to manage user wallets, integration is **extremely simple** - just pass wallet info from your database:
+
+```typescript
+import { PolymarketRouter, createPrivySigner } from '@dome-api/sdk';
+import { PrivyClient } from '@privy-io/server-auth';
+
+// Step 1: Initialize router with Privy config (ONCE in your app)
+const privy = new PrivyClient(
+  process.env.PRIVY_APP_ID!,
+  process.env.PRIVY_APP_SECRET!,
+  {
+    walletApi: {
+      authorizationPrivateKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+    },
+  }
+);
+
+const router = new PolymarketRouter({
+  chainId: 137,
+  privy: {
+    appId: process.env.PRIVY_APP_ID!,
+    appSecret: process.env.PRIVY_APP_SECRET!,
+    authorizationKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+  },
+});
+
+// Step 2: Link user (one-time per user, store credentials in your DB)
+const signer = createPrivySigner(privy, user.privyWalletId, user.walletAddress);
+const credentials = await router.linkUser({
+  userId: user.id,
+  signer,
+});
+// Store credentials in your database
+
+// Step 3: Place orders - JUST PASS WALLET INFO!
+await router.placeOrder(
+  {
+    userId: user.id,
+    marketId:
+      '60487116984468020978247225474488676749601001829886755968952521846780452448915',
+    side: 'buy',
+    size: 5,
+    price: 0.99,
+    // No signer needed - router uses Privy config automatically!
+    privyWalletId: user.privyWalletId,
+    walletAddress: user.walletAddress,
+  },
+  credentials
+);
+```
+
+**Key Benefits:**
+
+- ✅ **Multi-user support** - Works with any number of wallets
+- ✅ **No manual signer creation per order** - Just pass `privyWalletId` and `walletAddress`
+- ✅ **Server-side only** - No user popups or frontend dependencies
+- ✅ **Direct CLOB** - Places orders directly on Polymarket
+
+See [`examples/privy-polymarket-simple.ts`](./examples/privy-polymarket-simple.ts) for a complete working example.
+
+### Overview
+
+The router pattern allows users to:
+
+1. Sign **ONE** EIP-712 message to create a Polymarket CLOB API key
+2. Trade using API keys thereafter (no wallet signatures per trade)
+3. Works with any wallet provider that implements the `RouterSigner` interface
+
+This is ideal for applications that want to abstract away the complexity of prediction market trading while providing a smooth user experience.
+
+### Basic Example
+
+```typescript
+import { PolymarketRouter, RouterSigner, Eip712Payload } from '@dome-api/sdk';
+
+// Step 1: Create a signer adapter for your wallet provider
+const signer: RouterSigner = {
+  async getAddress() {
+    // Return user's wallet address
+    return '0x...';
+  },
+  async signTypedData(payload: Eip712Payload) {
+    // Sign EIP-712 payload with user's wallet
+    return '0x...signature...';
+  },
+};
+
+// Step 2: Initialize router
+const router = new PolymarketRouter({
+  baseURL: 'https://api.domeapi.io/v1',
+  apiKey: process.env.DOME_API_KEY,
+});
+
+// Step 3: Link user (one-time setup)
+await router.linkUser({
+  userId: 'user-123',
+  signer,
+});
+
+// Step 4: Place orders without signatures!
+await router.placeOrder({
+  userId: 'user-123',
+  marketId: 'bitcoin-above-100k',
+  side: 'buy',
+  size: 10,
+  price: 0.65,
+});
+```
+
+### Wallet Provider Adapters
+
+The SDK is wallet-agnostic. You just need to implement the `RouterSigner` interface:
+
+**Privy Example:**
+
+```typescript
+import { usePrivy } from '@privy-io/react-auth';
+
+const { user, signTypedData } = usePrivy();
+
+const signer: RouterSigner = {
+  async getAddress() {
+    return user.wallet.address;
+  },
+  async signTypedData(payload) {
+    return await signTypedData(payload);
+  },
+};
+```
+
+**MetaMask Example:**
+
+```typescript
+const signer: RouterSigner = {
+  async getAddress() {
+    const accounts = await window.ethereum.request({
+      method: 'eth_requestAccounts',
+    });
+    return accounts[0];
+  },
+  async signTypedData(payload) {
+    const address = await this.getAddress();
+    return await window.ethereum.request({
+      method: 'eth_signTypedData_v4',
+      params: [address, JSON.stringify(payload)],
+    });
+  },
+};
+```
+
+### Complete Example
+
+See the [`examples/`](./examples) directory for complete integration examples:
+
+- **Privy Integration** ([`examples/privy-integration.ts`](./examples/privy-integration.ts)): Server-side and client-side Privy integration
+- **Router README** ([`examples/README.md`](./examples/README.md)): Architecture overview, custom signer examples, and more
+
+### Architecture
+
+```
+User Wallet → RouterSigner → Dome Router → Polymarket CLOB
+   (Privy, MetaMask, etc.)     (SDK)       (Backend)     (Exchange)
+```
+
+**Benefits:**
+
+- Users sign once, trade forever (with API keys)
+- Works with any wallet provider
+- Your backend handles exchange-specific complexity
+- Easy to add more exchanges in the future
+
 ## Error Handling
 
 The SDK provides comprehensive error handling:
