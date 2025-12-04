@@ -1,4 +1,4 @@
-import { DomeClient } from '../index';
+import { DomeClient } from '../index.js';
 import axios from 'axios';
 
 // Mock axios to avoid actual HTTP calls in tests
