@@ -8,12 +8,12 @@
  * Future: Will route through Dome backend for additional features
  */
 
-export { PolymarketRouter } from './polymarket';
-export type { PolymarketCredentials } from './polymarket';
+export { PolymarketRouter } from './polymarket.js';
+export type { PolymarketCredentials } from './polymarket.js';
 export type {
   RouterSigner,
   LinkPolymarketUserParams,
   PlaceOrderParams,
   PolymarketRouterConfig,
   Eip712Payload,
-} from '../types';
+} from '../types.js';

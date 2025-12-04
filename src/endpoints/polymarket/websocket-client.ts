@@ -9,22 +9,31 @@ import {
   WebSocketEventMessage,
   WebSocketSubscriptionFilters,
   Order,
-} from '../../types';
+} from '../../types.js';
 
 // Use ws package in Node.js, native WebSocket in browsers
 // eslint-disable-next-line no-undef
 type WebSocketType = typeof WebSocket;
-let WebSocketImpl: WebSocketType;
-if (typeof window === 'undefined') {
-  // Node.js environment - use ws package
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const ws = require('ws');
-  // eslint-disable-next-line no-undef
-  WebSocketImpl = ws as WebSocketType;
-} else {
-  // Browser environment - use native WebSocket
-  // eslint-disable-next-line no-undef
-  WebSocketImpl = WebSocket;
+
+// Lazy-loaded WebSocket implementation
+let WebSocketImpl: WebSocketType | null = null;
+
+async function getWebSocketImpl(): Promise<WebSocketType> {
+  if (WebSocketImpl) {
+    return WebSocketImpl;
+  }
+
+  if (typeof window === 'undefined') {
+    // Node.js environment - dynamically import ws package
+    const { default: WS } = await import('ws');
+    WebSocketImpl = WS as unknown as WebSocketType;
+  } else {
+    // Browser environment - use native WebSocket
+    // eslint-disable-next-line no-undef
+    WebSocketImpl = WebSocket;
+  }
+
+  return WebSocketImpl;
 }
 
 /**
@@ -111,8 +120,10 @@ export class PolymarketWebSocketClient extends EventEmitter {
    * @returns Promise that resolves when connection is established
    */
   async connect(): Promise<void> {
+    const WS = await getWebSocketImpl();
+
     // eslint-disable-next-line no-undef
-    if (this.ws?.readyState === WebSocketImpl.OPEN) {
+    if (this.ws?.readyState === WS.OPEN) {
       return;
     }
 
@@ -126,7 +137,7 @@ export class PolymarketWebSocketClient extends EventEmitter {
     return new Promise((resolve, reject) => {
       try {
         const url = `${this.wsURL}/${this.apiKey}`;
-        this.ws = new WebSocketImpl(url);
+        this.ws = new WS(url);
 
         this.ws.onopen = () => {
           this.isConnecting = false;
@@ -190,8 +201,9 @@ export class PolymarketWebSocketClient extends EventEmitter {
    * @returns Promise resolving to subscription acknowledgment
    */
   async subscribe(filters: { users: string[] }): Promise<WebSocketAckMessage> {
+    const WS = await getWebSocketImpl();
     // eslint-disable-next-line no-undef
-    if (!this.ws || this.ws.readyState !== WebSocketImpl.OPEN) {
+    if (!this.ws || this.ws.readyState !== WS.OPEN) {
       await this.connect();
     }
 
@@ -237,8 +249,9 @@ export class PolymarketWebSocketClient extends EventEmitter {
    * @returns Promise that resolves when unsubscribed
    */
   async unsubscribe(subscriptionId: string): Promise<void> {
+    const WS = await getWebSocketImpl();
     // eslint-disable-next-line no-undef
-    if (!this.ws || this.ws.readyState !== WebSocketImpl.OPEN) {
+    if (!this.ws || this.ws.readyState !== WS.OPEN) {
       throw new Error('WebSocket is not connected');
     }
 
@@ -274,8 +287,10 @@ export class PolymarketWebSocketClient extends EventEmitter {
    * @returns true if connected, false otherwise
    */
   isConnected(): boolean {
-    // eslint-disable-next-line no-undef
-    return this.ws?.readyState === WebSocketImpl.OPEN;
+    if (!this.ws) return false;
+    // Can't use async here, so we check against the standard WebSocket.OPEN constant
+    // In both browser and Node.js ws package, OPEN = 1
+    return this.ws.readyState === 1; // WebSocket.OPEN
   }
 
   /**

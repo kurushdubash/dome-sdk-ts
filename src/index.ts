@@ -1,9 +1,9 @@
-import { DomeSDKConfig } from './types';
+import { DomeSDKConfig } from './types.js';
 import {
   PolymarketClient,
   MatchingMarketsEndpoints,
   KalshiClient,
-} from './endpoints';
+} from './endpoints/index.js';
 
 /**
  * Main Dome SDK Client
@@ -43,13 +43,13 @@ export class DomeClient {
 }
 
 // Re-export types for convenience
-export * from './types';
+export * from './types.js';
 
 // Re-export router helpers
-export * from './router';
+export * from './router/index.js';
 
 // Re-export utility helpers
-export * from './utils/privy';
+export * from './utils/privy.js';
 
 // Default export
 export default DomeClient;

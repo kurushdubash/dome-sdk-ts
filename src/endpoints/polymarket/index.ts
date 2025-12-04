@@ -1,5 +1,5 @@
 // Export all Polymarket endpoint classes
-export { MarketEndpoints } from './market-endpoints';
-export { WalletEndpoints } from './wallet-endpoints';
-export { OrdersEndpoints } from './orders-endpoints';
-export { PolymarketWebSocketClient } from './websocket-client';
+export { MarketEndpoints } from './market-endpoints.js';
+export { WalletEndpoints } from './wallet-endpoints.js';
+export { OrdersEndpoints } from './orders-endpoints.js';
+export { PolymarketWebSocketClient } from './websocket-client.js';

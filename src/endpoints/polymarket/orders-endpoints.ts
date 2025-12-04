@@ -1,11 +1,11 @@
-import { BaseClient } from '../../base-client';
+import { BaseClient } from '../../base-client.js';
 import {
   OrdersResponse,
   GetOrdersParams,
   ActivityResponse,
   GetActivityParams,
   RequestConfig,
-} from '../../types';
+} from '../../types.js';
 
 /**
  * Orders-related endpoints for the Dome API
