@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import { DomeClient } from '../index';
+import { DomeClient } from '../index.js';
 
 /**
  * Integration test script for the Dome SDK

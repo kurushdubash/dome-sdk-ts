@@ -1,11 +1,11 @@
-import { BaseClient } from '../base-client';
+import { BaseClient } from '../base-client.js';
 import {
   MatchingMarketsResponse,
   GetMatchingMarketsParams,
   MatchingMarketsBySportResponse,
   GetMatchingMarketsBySportParams,
   RequestConfig,
-} from '../types';
+} from '../types.js';
 
 /**
  * Matching Markets-related endpoints for the Dome API

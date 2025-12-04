@@ -1,8 +1,8 @@
-import { DomeSDKConfig, WebSocketConfig } from '../../types';
-import { MarketEndpoints } from './market-endpoints';
-import { WalletEndpoints } from './wallet-endpoints';
-import { OrdersEndpoints } from './orders-endpoints';
-import { PolymarketWebSocketClient } from './websocket-client';
+import { DomeSDKConfig, WebSocketConfig } from '../../types.js';
+import { MarketEndpoints } from './market-endpoints.js';
+import { WalletEndpoints } from './wallet-endpoints.js';
+import { OrdersEndpoints } from './orders-endpoints.js';
+import { PolymarketWebSocketClient } from './websocket-client.js';
 
 /**
  * Polymarket client that provides access to all Polymarket-related endpoints

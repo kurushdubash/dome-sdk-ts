@@ -1,9 +1,9 @@
-import { BaseClient } from '../../base-client';
+import { BaseClient } from '../../base-client.js';
 import {
   WalletPnLResponse,
   GetWalletPnLParams,
   RequestConfig,
-} from '../../types';
+} from '../../types.js';
 
 /**
  * Wallet-related endpoints for the Dome API

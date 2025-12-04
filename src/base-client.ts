@@ -1,5 +1,5 @@
 import axios, { AxiosResponse, AxiosError, AxiosRequestConfig } from 'axios';
-import { DomeSDKConfig, RequestConfig, ApiError } from './types';
+import { DomeSDKConfig, RequestConfig, ApiError } from './types.js';
 
 /**
  * Base client class that provides common HTTP functionality

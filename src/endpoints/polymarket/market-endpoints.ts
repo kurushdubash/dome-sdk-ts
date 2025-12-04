@@ -1,4 +1,4 @@
-import { BaseClient } from '../../base-client';
+import { BaseClient } from '../../base-client.js';
 import {
   MarketPriceResponse,
   GetMarketPriceParams,
@@ -9,7 +9,7 @@ import {
   MarketsResponse,
   GetMarketsParams,
   RequestConfig,
-} from '../../types';
+} from '../../types.js';
 
 /**
  * Market-related endpoints for the Dome API

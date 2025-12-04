@@ -1,5 +1,5 @@
-import { DomeSDKConfig } from '../../types';
-import { KalshiEndpoints } from './kalshi-endpoints';
+import { DomeSDKConfig } from '../../types.js';
+import { KalshiEndpoints } from './kalshi-endpoints.js';
 
 /**
  * Kalshi client that provides access to all Kalshi-related endpoints

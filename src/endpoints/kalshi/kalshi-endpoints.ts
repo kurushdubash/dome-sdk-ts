@@ -1,11 +1,11 @@
-import { BaseClient } from '../../base-client';
+import { BaseClient } from '../../base-client.js';
 import {
   KalshiMarketsResponse,
   GetKalshiMarketsParams,
   KalshiOrderbooksResponse,
   GetKalshiOrderbooksParams,
   RequestConfig,
-} from '../../types';
+} from '../../types.js';
 
 /**
  * Kalshi-related endpoints for the Dome API

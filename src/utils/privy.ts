@@ -6,7 +6,7 @@
  */
 
 import { PrivyClient } from '@privy-io/server-auth';
-import { RouterSigner, Eip712Payload } from '../types';
+import { RouterSigner, Eip712Payload } from '../types.js';
 
 /**
  * Configuration for Privy integration

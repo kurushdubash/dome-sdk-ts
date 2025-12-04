@@ -1,0 +1,7 @@
+{
+  "name": "third-party-sdk-test",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Test third-party usage of @dome-api/sdk",
+  "dependencies": {}
+}

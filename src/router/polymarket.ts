@@ -4,8 +4,8 @@ import {
   PlaceOrderParams,
   PolymarketRouterConfig,
   RouterSigner,
-} from '../types';
-import { createPrivyClient, createPrivySigner } from '../utils/privy';
+} from '../types.js';
+import { createPrivyClient, createPrivySigner } from '../utils/privy.js';
 
 /**
  * Polymarket Router Helper (v0 - Direct CLOB Integration)
@@ -24,7 +24,7 @@ import { createPrivyClient, createPrivySigner } from '../utils/privy';
  * @example
  * ```typescript
  * import { PolymarketRouter } from '@dome-api/sdk/router';
- * import { createPrivySigner } from './privy-adapter';
+ * import { createPrivySigner } from './privy-adapter.js';
  *
  * const router = new PolymarketRouter({
  *   chainId: 137, // Polygon mainnet
