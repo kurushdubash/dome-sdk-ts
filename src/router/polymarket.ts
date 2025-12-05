@@ -5,7 +5,17 @@ import {
   PolymarketRouterConfig,
   RouterSigner,
 } from '../types.js';
-import { createPrivyClient, createPrivySigner } from '../utils/privy.js';
+import {
+  createPrivyClient,
+  createPrivySigner,
+  checkPrivyWalletAllowances,
+  setPrivyWalletAllowances,
+} from '../utils/privy.js';
+import {
+  checkAllAllowances,
+  setAllAllowances,
+  getPolygonProvider,
+} from '../utils/allowances.js';
 
 /**
  * Polymarket Router Helper (v0 - Direct CLOB Integration)
@@ -54,6 +64,20 @@ interface PolymarketCredentials {
   apiKey: string;
   apiSecret: string;
   apiPassphrase: string;
+}
+
+interface AllowanceCheckResult {
+  allSet: boolean;
+  usdc: {
+    ctfExchange: boolean;
+    negRiskCtfExchange: boolean;
+    negRiskAdapter: boolean;
+  };
+  ctf: {
+    ctfExchange: boolean;
+    negRiskCtfExchange: boolean;
+    negRiskAdapter: boolean;
+  };
 }
 
 export class PolymarketRouter {
@@ -124,10 +148,31 @@ export class PolymarketRouter {
   async linkUser(
     params: LinkPolymarketUserParams
   ): Promise<PolymarketCredentials> {
-    const { userId, signer } = params;
+    const { userId, signer, privyWalletId, autoSetAllowances = true } = params;
 
     // Get the user's wallet address
     const address = await signer.getAddress();
+
+    // Auto-set allowances if Privy is configured and wallet ID provided
+    if (autoSetAllowances && this.privyClient && privyWalletId) {
+      console.log('   Checking token allowances...');
+      const allowances = await checkPrivyWalletAllowances(address);
+
+      if (!allowances.allSet) {
+        console.log('   Setting missing token allowances...');
+        await setPrivyWalletAllowances(
+          this.privyClient,
+          privyWalletId,
+          address,
+          (step, current, total) => {
+            console.log(`   [${current}/${total}] ${step}...`);
+          }
+        );
+        console.log('   ✅ Token allowances set');
+      } else {
+        console.log('   ✅ Token allowances already set');
+      }
+    }
 
     // Create user-specific CLOB client with the signer
     // We need to adapt RouterSigner to ethers Wallet interface
@@ -356,6 +401,84 @@ export class PolymarketRouter {
    */
   getCredentials(userId: string): PolymarketCredentials | undefined {
     return this.userCredentials.get(userId);
+  }
+
+  /**
+   * Check if a wallet has all required token allowances for Polymarket trading
+   *
+   * This checks both USDC and Conditional Token Framework (CTF) approvals
+   * for all three Polymarket exchange contracts.
+   *
+   * @param walletAddress - Ethereum address to check
+   * @param rpcUrl - Optional custom Polygon RPC URL
+   * @returns Promise with allowance status
+   *
+   * @example
+   * ```typescript
+   * const allowances = await router.checkAllowances('0x123...');
+   * if (!allowances.allSet) {
+   *   console.log('Missing allowances:', allowances);
+   *   // Use setAllowances() to fix
+   * }
+   * ```
+   */
+  async checkAllowances(
+    walletAddress: string,
+    rpcUrl?: string
+  ): Promise<AllowanceCheckResult> {
+    const provider = getPolygonProvider(rpcUrl);
+    return await checkAllAllowances(walletAddress, provider);
+  }
+
+  /**
+   * Set all required token allowances for Polymarket trading
+   *
+   * This will approve:
+   * - USDC spending for all 3 Polymarket exchange contracts
+   * - CTF (Conditional Token Framework) tokens for all 3 exchange contracts
+   *
+   * Each approval requires a separate on-chain transaction. Only missing
+   * approvals will be set, so this is safe to call multiple times.
+   *
+   * IMPORTANT: This will prompt the user to sign up to 6 transactions
+   * (USDC + CTF for each of 3 contracts). These approvals only need to
+   * be done ONCE per wallet, ever.
+   *
+   * @param signer - RouterSigner implementation (Privy, MetaMask, etc.)
+   * @param rpcUrl - Optional custom Polygon RPC URL
+   * @param onProgress - Optional callback for progress updates
+   * @returns Promise with transaction hashes for each approval
+   *
+   * @example
+   * ```typescript
+   * const signer = createPrivySigner(privy, walletId, address);
+   *
+   * // With progress tracking
+   * const txs = await router.setAllowances(signer, undefined, (step, current, total) => {
+   *   console.log(`[${current}/${total}] ${step}`);
+   * });
+   *
+   * console.log('Approval transactions:', txs);
+   * ```
+   */
+  async setAllowances(
+    signer: RouterSigner,
+    rpcUrl?: string,
+    onProgress?: (step: string, current: number, total: number) => void
+  ): Promise<{
+    usdc: {
+      ctfExchange?: string;
+      negRiskCtfExchange?: string;
+      negRiskAdapter?: string;
+    };
+    ctf: {
+      ctfExchange?: string;
+      negRiskCtfExchange?: string;
+      negRiskAdapter?: string;
+    };
+  }> {
+    const provider = getPolygonProvider(rpcUrl);
+    return await setAllAllowances(signer, provider, onProgress);
   }
 }
 

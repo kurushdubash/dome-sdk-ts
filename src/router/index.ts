@@ -17,3 +17,9 @@ export type {
   PolymarketRouterConfig,
   Eip712Payload,
 } from '../types.js';
+export {
+  checkAllAllowances,
+  setAllAllowances,
+  getPolygonProvider,
+  POLYGON_ADDRESSES,
+} from '../utils/allowances.js';
