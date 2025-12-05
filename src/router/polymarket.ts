@@ -148,7 +148,13 @@ export class PolymarketRouter {
   async linkUser(
     params: LinkPolymarketUserParams
   ): Promise<PolymarketCredentials> {
-    const { userId, signer, privyWalletId, autoSetAllowances = true } = params;
+    const {
+      userId,
+      signer,
+      privyWalletId,
+      autoSetAllowances = true,
+      sponsorGas = false,
+    } = params;
 
     // Get the user's wallet address
     const address = await signer.getAddress();
@@ -159,13 +165,18 @@ export class PolymarketRouter {
       const allowances = await checkPrivyWalletAllowances(address);
 
       if (!allowances.allSet) {
-        console.log('   Setting missing token allowances...');
+        console.log(
+          `   Setting missing token allowances${sponsorGas ? ' (sponsored)' : ''}...`
+        );
         await setPrivyWalletAllowances(
           this.privyClient,
           privyWalletId,
           address,
-          (step, current, total) => {
-            console.log(`   [${current}/${total}] ${step}...`);
+          {
+            onProgress: (step, current, total) => {
+              console.log(`   [${current}/${total}] ${step}...`);
+            },
+            sponsor: sponsorGas,
           }
         );
         console.log('   ✅ Token allowances set');
