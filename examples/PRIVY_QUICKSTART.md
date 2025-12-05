@@ -180,14 +180,128 @@ const credentials = await router.linkUser({
 
 See [ALLOWANCES_GUIDE.md](../ALLOWANCES_GUIDE.md) for detailed information.
 
-## Privy Wallet Policy Setup
+## Privy Wallet Policy Setup (Required)
 
-For auto-allowances to work, your Privy wallet policy must allow `eth_sendTransaction` to the token contracts. Add these rules to your policy:
+For auto-allowances to work, your Privy wallet policy must allow `eth_sendTransaction` to the Polymarket token contracts. This is a **one-time setup per Privy app**.
 
-1. **USDC Contract**: `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`
-2. **CTF Contract**: `0x4D97DCd97eC945f40cF65F87097ACe5EA0476045`
+### Step 1: Create a Policy
 
-See [Privy Policies Documentation](https://docs.privy.io/guide/server/policies) for setup instructions.
+First, create a policy that allows the required operations:
+
+```bash
+curl -X POST https://auth.privy.io/api/v1/policies \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n '$PRIVY_APP_ID:$PRIVY_APP_SECRET' | base64)" \
+  -H "privy-app-id: $PRIVY_APP_ID" \
+  -d '{
+    "version": "1.0.0",
+    "name": "Polymarket Trading Policy",
+    "chain_type": "ethereum",
+    "method_rules": [
+      {
+        "name": "Allow EIP-712 signing",
+        "method": "eth_signTypedData_v4",
+        "action": "ALLOW",
+        "conditions": []
+      }
+    ],
+    "default_action": "DENY"
+  }'
+```
+
+Save the returned `id` (e.g., `xels4ezr77ek8ol9d1m8tqac`) - you'll need it for the next steps.
+
+### Step 2: Add Token Approval Rules
+
+Add rules to allow transactions to the USDC and CTF token contracts:
+
+```bash
+# Allow USDC token approvals
+curl -X POST "https://auth.privy.io/api/v1/policies/$POLICY_ID/rules" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n '$PRIVY_APP_ID:$PRIVY_APP_SECRET' | base64)" \
+  -H "privy-app-id: $PRIVY_APP_ID" \
+  -d '{
+    "name": "Allow USDC token approvals",
+    "method": "eth_sendTransaction",
+    "action": "ALLOW",
+    "conditions": [
+      {
+        "field_source": "ethereum_transaction",
+        "field": "to",
+        "operator": "eq",
+        "value": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"
+      }
+    ]
+  }'
+
+# Allow CTF token approvals
+curl -X POST "https://auth.privy.io/api/v1/policies/$POLICY_ID/rules" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n '$PRIVY_APP_ID:$PRIVY_APP_SECRET' | base64)" \
+  -H "privy-app-id: $PRIVY_APP_ID" \
+  -d '{
+    "name": "Allow CTF token approvals",
+    "method": "eth_sendTransaction",
+    "action": "ALLOW",
+    "conditions": [
+      {
+        "field_source": "ethereum_transaction",
+        "field": "to",
+        "operator": "eq",
+        "value": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+      }
+    ]
+  }'
+```
+
+### Step 3: Attach Policy to Wallets
+
+When creating wallets, attach the policy:
+
+```typescript
+const wallet = await privy.walletApi.create({
+  chainType: 'ethereum',
+  policyIds: ['your-policy-id-here'],
+});
+```
+
+Or update existing wallets:
+
+```bash
+curl -X PATCH "https://auth.privy.io/api/v1/wallets/$WALLET_ID" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n '$PRIVY_APP_ID:$PRIVY_APP_SECRET' | base64)" \
+  -H "privy-app-id: $PRIVY_APP_ID" \
+  -d '{
+    "policy_ids": ["your-policy-id-here"]
+  }'
+```
+
+### Verify Your Policy
+
+Check that your policy is correctly configured:
+
+```bash
+curl "https://auth.privy.io/api/v1/policies/$POLICY_ID" \
+  -H "Authorization: Basic $(echo -n '$PRIVY_APP_ID:$PRIVY_APP_SECRET' | base64)" \
+  -H "privy-app-id: $PRIVY_APP_ID"
+```
+
+You should see rules for:
+
+- `eth_signTypedData_v4` (ALLOW) - for signing Polymarket orders
+- `eth_sendTransaction` to USDC contract (ALLOW) - for token approvals
+- `eth_sendTransaction` to CTF contract (ALLOW) - for token approvals
+
+### Contract Addresses Reference
+
+| Contract | Address                                      | Purpose                     |
+| -------- | -------------------------------------------- | --------------------------- |
+| USDC     | `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174` | Stablecoin for trading      |
+| CTF      | `0x4D97DCd97eC945f40cF65F87097ACe5EA0476045` | Conditional Token Framework |
+
+See [Privy Policies Documentation](https://docs.privy.io/guide/server/policies) for more details.
 
 ## Funding Wallets
 
