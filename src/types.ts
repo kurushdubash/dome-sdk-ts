@@ -457,6 +457,8 @@ export interface LinkPolymarketUserParams {
   privyWalletId?: string;
   /** Optional: Whether to automatically set token allowances if missing (default: true) */
   autoSetAllowances?: boolean;
+  /** Optional: Use Privy gas sponsorship for allowance transactions (default: false) */
+  sponsorGas?: boolean;
 }
 
 /**

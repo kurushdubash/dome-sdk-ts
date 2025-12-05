@@ -246,6 +246,16 @@ export async function checkPrivyWalletAllowances(
 }
 
 /**
+ * Options for setting Privy wallet allowances
+ */
+export interface SetPrivyWalletAllowancesOptions {
+  /** Callback for progress updates */
+  onProgress?: (step: string, current: number, total: number) => void;
+  /** Whether to use Privy's gas sponsorship (default: false) */
+  sponsor?: boolean;
+}
+
+/**
  * Set all required token allowances for Polymarket trading using Privy's sendTransaction
  *
  * This uses Privy's walletApi.ethereum.sendTransaction() to send approval transactions
@@ -254,7 +264,7 @@ export async function checkPrivyWalletAllowances(
  * @param privy - Configured PrivyClient instance
  * @param walletId - Privy wallet ID
  * @param walletAddress - Wallet address (0x...)
- * @param onProgress - Optional callback for progress updates
+ * @param options - Optional settings including progress callback and gas sponsorship
  * @returns Object with transaction hashes for each approval
  *
  * @example
@@ -264,7 +274,10 @@ export async function checkPrivyWalletAllowances(
  *   privy,
  *   'wallet-id',
  *   '0x1234...',
- *   (step, current, total) => console.log(`[${current}/${total}] ${step}`)
+ *   {
+ *     onProgress: (step, current, total) => console.log(`[${current}/${total}] ${step}`),
+ *     sponsor: true, // Use Privy gas sponsorship
+ *   }
  * );
  * ```
  */
@@ -272,7 +285,7 @@ export async function setPrivyWalletAllowances(
   privy: PrivyClient,
   walletId: string,
   walletAddress: string,
-  onProgress?: (step: string, current: number, total: number) => void
+  options?: SetPrivyWalletAllowancesOptions
 ): Promise<{
   usdc: {
     ctfExchange?: string;
@@ -380,6 +393,8 @@ export async function setPrivyWalletAllowances(
     });
   }
 
+  const { onProgress, sponsor = false } = options || {};
+
   // Send each approval transaction
   for (let i = 0; i < approvals.length; i++) {
     const approval = approvals[i];
@@ -403,6 +418,7 @@ export async function setPrivyWalletAllowances(
         data: data as `0x${string}`,
         chainId: 137,
       },
+      sponsor,
     });
 
     txHashes[approval.type][approval.key] = result.hash;

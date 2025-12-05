@@ -14,7 +14,7 @@ Before using the SDK, you need:
 
 1. **Privy credentials** from your [Privy dashboard](https://dashboard.privy.io)
 2. **Wallet policy** configured to allow token approvals (see [Policy Setup](#privy-wallet-policy-setup))
-3. **Funded wallets** with USDC + small amount of POL for gas
+3. **Funded wallets** with USDC (+ POL for gas, unless using [gas sponsorship](#gas-sponsorship))
 
 ## Environment Variables
 
@@ -168,7 +168,24 @@ Polymarket uses 3 exchange contracts, each needing USDC + CTF approval:
 | Neg Risk CTF Exchange | `0xC5d563A36AE78145C45a50134d48A1215220f80a` |
 | Neg Risk Adapter      | `0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296` |
 
-**Cost**: ~$0.006 total in POL gas fees (one-time per wallet).
+**Cost**: ~$0.006 total in POL gas fees (one-time per wallet), or free with gas sponsorship.
+
+### Gas Sponsorship
+
+Use Privy's gas sponsorship to pay for allowance transactions so users don't need POL:
+
+```typescript
+const credentials = await router.linkUser({
+  userId: user.id,
+  signer,
+  privyWalletId: user.privyWalletId,
+  sponsorGas: true, // Privy pays gas fees
+});
+```
+
+With `sponsorGas: true`, Privy covers the gas costs for the 6 approval transactions. Users only need USDC for trading.
+
+**Note**: Gas sponsorship requires Privy's gas sponsorship feature to be enabled for your app. See [Privy Gas Sponsorship docs](https://docs.privy.io/guide/react/wallets/smart-wallets/sponsorship).
 
 ### Manual Control (Optional)
 
@@ -186,10 +203,10 @@ if (!status.allSet) {
 
 ## Funding Wallets
 
-| Token | Contract                                     | Purpose            |
-| ----- | -------------------------------------------- | ------------------ |
-| USDC  | `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174` | Trading capital    |
-| POL   | Native token                                 | Gas (~$0.01 total) |
+| Token | Contract                                     | Purpose                                   |
+| ----- | -------------------------------------------- | ----------------------------------------- |
+| USDC  | `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174` | Trading capital                           |
+| POL   | Native token                                 | Gas (~$0.01) - not needed with sponsorGas |
 
 ## Troubleshooting
 
