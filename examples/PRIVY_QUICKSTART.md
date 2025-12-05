@@ -45,6 +45,7 @@ const router = new PolymarketRouter({
 });
 
 // For each user, link to Polymarket (ONE TIME)
+// This automatically sets token allowances if needed!
 async function linkUser(user) {
   const signer = createPrivySigner(
     privy,
@@ -52,9 +53,11 @@ async function linkUser(user) {
     user.walletAddress
   );
 
+  // Pass privyWalletId to enable automatic allowance setup
   const credentials = await router.linkUser({
     userId: user.id,
     signer,
+    privyWalletId: user.privyWalletId, // Enables auto-allowances
   });
 
   // Store credentials in your database
@@ -109,6 +112,7 @@ await placeOrder(
 
 1. **Initialize once** - Set up router with Privy config (happens once when your server starts)
 2. **Link users** - Each user signs once to create Polymarket API credentials (store in your DB)
+   - Token allowances are automatically set if `privyWalletId` is passed
 3. **Trade freely** - Place unlimited orders by just passing wallet ID and address
 
 ## Key Features
@@ -116,6 +120,7 @@ await placeOrder(
 - ✅ **Multi-user** - Works with unlimited users/wallets
 - ✅ **Server-side** - No frontend dependencies or user popups
 - ✅ **One signature per user** - Users sign once, trade forever
+- ✅ **Auto-allowances** - Token approvals handled automatically during `linkUser()`
 - ✅ **Direct CLOB** - Orders go directly to Polymarket (no intermediaries)
 - ✅ **Production-ready** - Same EOA wallet is both signer and funder
 
@@ -132,15 +137,69 @@ const markets = await domeClient.polymarket.markets.getMarkets({
 console.log(markets.markets[0].side_a.id); // This is the token ID / market ID
 ```
 
+## Token Allowances (Automatic!)
+
+Token allowances are **automatically handled** when you call `linkUser()` with `privyWalletId`. The SDK will:
+
+1. Check if all 6 required allowances are set
+2. If any are missing, send the approval transactions automatically
+3. Then proceed with credential creation
+
+**No manual allowance setup needed!** Just pass `privyWalletId` to `linkUser()`.
+
+### Manual Control (Optional)
+
+If you prefer to manage allowances separately:
+
+```typescript
+// Check current allowance status
+const status = await router.checkAllowances(user.walletAddress);
+
+if (!status.allSet) {
+  const signer = createPrivySigner(
+    privy,
+    user.privyWalletId,
+    user.walletAddress
+  );
+
+  // Set all allowances (6 transactions, one-time only)
+  await router.setAllowances(signer, undefined, (step, current, total) => {
+    console.log(`[${current}/${total}] ${step}`);
+  });
+}
+
+// Then link without auto-allowances
+const credentials = await router.linkUser({
+  userId: user.id,
+  signer,
+  autoSetAllowances: false, // Disable auto-allowances
+});
+```
+
+**Cost**: ~$0.006 USD in MATIC for gas fees (6 approval transactions, one-time per wallet).
+
+See [ALLOWANCES_GUIDE.md](../ALLOWANCES_GUIDE.md) for detailed information.
+
+## Privy Wallet Policy Setup
+
+For auto-allowances to work, your Privy wallet policy must allow `eth_sendTransaction` to the token contracts. Add these rules to your policy:
+
+1. **USDC Contract**: `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`
+2. **CTF Contract**: `0x4D97DCd97eC945f40cF65F87097ACe5EA0476045`
+
+See [Privy Policies Documentation](https://docs.privy.io/guide/server/policies) for setup instructions.
+
 ## Funding Wallets
 
-Users need USDC.e on Polygon to trade:
+Users need both tokens on Polygon to trade:
 
-- **Token**: USDC.e (bridged USDC)
-- **Contract**: `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`
-- **Network**: Polygon (Chain ID 137)
+1. **USDC** (for trading)
+   - **Contract**: `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`
+   - Send USDC to `user.walletAddress` on Polygon network
 
-Send USDC.e to `user.walletAddress` on Polygon network.
+2. **POL/MATIC** (for gas fees during allowance setup)
+   - **Amount needed**: ~0.01 POL (~$0.005 USD)
+   - Only needed once for setting allowances
 
 ## Support
 

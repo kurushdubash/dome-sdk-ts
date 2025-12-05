@@ -453,6 +453,10 @@ export interface LinkPolymarketUserParams {
   userId: string;
   /** Wallet/signing implementation (Privy, MetaMask, etc.) */
   signer: RouterSigner;
+  /** Optional: Privy wallet ID (required for auto-setting allowances with Privy) */
+  privyWalletId?: string;
+  /** Optional: Whether to automatically set token allowances if missing (default: true) */
+  autoSetAllowances?: boolean;
 }
 
 /**
