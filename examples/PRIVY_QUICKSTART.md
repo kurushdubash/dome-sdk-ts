@@ -2,6 +2,8 @@
 
 **The simplest way to add Polymarket trading to your Privy-powered app.**
 
+All orders automatically use Dome's builder server for improved execution, routing, and reduced MEV exposure.
+
 ## Installation
 
 ```bash
@@ -48,6 +50,7 @@ const router = new PolymarketRouter({
     appSecret: process.env.PRIVY_APP_SECRET!,
     authorizationKey: process.env.PRIVY_AUTHORIZATION_KEY!,
   },
+  // Builder server is automatically enabled for all orders
 });
 
 // Link user to Polymarket (ONE TIME per user)
@@ -93,6 +96,18 @@ async function placeOrder(user, marketId, side, size, price) {
 
 1. **Link user once** - Sets allowances + creates Polymarket API credentials
 2. **Trade forever** - No more signatures needed, just pass wallet info
+3. **Builder routing** - All orders automatically use Dome's builder server
+
+## Dome Builder Server (Always Enabled)
+
+All orders automatically use Dome's builder server (`https://builder-signer.domeapi.io/builder-signer/sign`) for:
+
+- **Better order routing and execution** - Access to private order flow
+- **Reduced MEV exposure** - Orders are less visible to front-runners
+- **Priority order matching** - Builder-signed orders get priority
+- **No additional setup** - Works automatically with zero configuration
+
+The builder server signs orders alongside your user's signature, providing these benefits transparently.
 
 ## Privy Wallet Policy Setup
 
