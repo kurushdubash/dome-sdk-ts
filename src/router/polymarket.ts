@@ -1,4 +1,5 @@
 import { ClobClient } from '@polymarket/clob-client';
+import { BuilderConfig as PolymarketBuilderConfig } from '@polymarket/builder-signing-sdk';
 import {
   LinkPolymarketUserParams,
   PlaceOrderParams,
@@ -87,9 +88,17 @@ export class PolymarketRouter {
   private readonly userCredentials = new Map<string, PolymarketCredentials>();
   private readonly privyClient?: any; // PrivyClient type
   private readonly privyConfig?: PolymarketRouterConfig['privy'];
+  private readonly builderConfig?: PolymarketBuilderConfig;
 
   constructor(config: PolymarketRouterConfig = {}) {
     this.chainId = config.chainId || 137; // Polygon mainnet by default
+
+    // Always use Dome builder server for improved order execution
+    this.builderConfig = new PolymarketBuilderConfig({
+      remoteBuilderConfig: {
+        url: 'https://builder-signer.domeapi.io/builder-signer/sign',
+      },
+    });
 
     // Initialize CLOB client (we'll set credentials per-user)
     this.clobClient = new ClobClient(
@@ -204,7 +213,13 @@ export class PolymarketRouter {
     const userClobClient = new ClobClient(
       this.clobClient.host,
       this.chainId,
-      ethersAdapter as any // Adapt our signer to ethers interface
+      ethersAdapter as any, // Adapt our signer to ethers interface
+      undefined, // apiKeyCreds (not needed for linkUser)
+      undefined, // signatureType
+      undefined, // funderAddress
+      undefined, // geoBlockToken
+      false, // useServerTime
+      this.builderConfig // Pass builder config
     );
 
     // Try to derive existing API credentials first
@@ -348,7 +363,8 @@ export class PolymarketRouter {
       0, // signatureType = 0 for browser wallet/EOA
       undefined, // funderAddress (undefined for EOA - uses signer address)
       undefined, // geoBlockToken
-      false // useServerTime
+      false, // useServerTime
+      this.builderConfig // Pass builder config
     );
 
     // Place order using CLOB client

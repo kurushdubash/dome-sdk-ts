@@ -807,6 +807,7 @@ const router = new PolymarketRouter({
     appSecret: process.env.PRIVY_APP_SECRET!,
     authorizationKey: process.env.PRIVY_AUTHORIZATION_KEY!,
   },
+  // Builder server automatically enabled for all orders
 });
 
 // Step 2: Link user (one-time per user, store credentials in your DB)
@@ -842,6 +843,17 @@ await router.placeOrder(
 - ✅ **Direct CLOB** - Places orders directly on Polymarket
 
 See [`examples/privy-polymarket-simple.ts`](./examples/privy-polymarket-simple.ts) for a complete working example.
+
+### Dome Builder Server (Always Enabled)
+
+All orders automatically use Dome's builder server (`https://builder-signer.domeapi.io/builder-signer/sign`) for:
+
+- **Better order routing and execution** - Access to private order flow
+- **Reduced MEV exposure** - Orders are less visible to front-runners
+- **Priority order matching** - Builder-signed orders get priority
+- **Zero configuration** - Works automatically with no setup required
+
+The builder server signs orders alongside your user's signature, providing these benefits transparently. See [`examples/privy-with-builder.ts`](./examples/privy-with-builder.ts) for implementation details.
 
 ### Overview
 

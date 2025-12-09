@@ -498,6 +498,9 @@ export interface PrivyRouterConfig {
 
 /**
  * Configuration for Polymarket router helper
+ *
+ * The router automatically uses Dome's builder server (https://builder-signer.domeapi.io/builder-signer/sign)
+ * for improved order execution, routing, and reduced MEV exposure.
  */
 export interface PolymarketRouterConfig {
   /** Chain ID (137 for Polygon mainnet, 80002 for Amoy testnet) */
