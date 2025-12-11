@@ -144,3 +144,6 @@ logs
 # Temporary files
 .tmp/
 temp/
+
+# ai docs
+ai-docs/*
