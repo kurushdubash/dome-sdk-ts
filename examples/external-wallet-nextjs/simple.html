@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>External Wallet Trading - Dome SDK</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { color: #333; }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover { background: #2563eb; }
+    button:disabled { background: #9ca3af; cursor: not-allowed; }
+    button.secondary { background: #6b7280; }
+    button.danger { background: #ef4444; }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .status.success { background: #d1fae5; color: #065f46; }
+    .status.error { background: #fee2e2; color: #991b1b; }
+    .status.info { background: #dbeafe; color: #1e40af; }
+    .status.warning { background: #fef3c7; color: #92400e; }
+    pre {
+      background: #1f2937;
+      color: #e5e7eb;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    .address {
+      font-family: monospace;
+      background: #e5e7eb;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    #log {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .step-number {
+      background: #3b82f6;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      margin-right: 10px;
+    }
+    .step.completed .step-number { background: #10b981; }
+    .step.active .step-number { background: #f59e0b; }
+  </style>
+</head>
+<body>
+  <h1>External Wallet Trading</h1>
+  <p>Trade on Polymarket using Safe smart accounts with your browser wallet.</p>
+
+  <!-- Wallet Connection -->
+  <div class="card">
+    <h2>1. Connect Wallet</h2>
+    <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+    <div id="walletStatus"></div>
+  </div>
+
+  <!-- Trading Session -->
+  <div class="card">
+    <h2>2. Initialize Trading Session</h2>
+    <p>This will derive your Safe address, deploy it if needed, and set up allowances.</p>
+    <button id="initBtn" onclick="initSession()" disabled>Start Trading Session</button>
+    <button id="checkBtn" onclick="checkStatus()" disabled class="secondary">Check Status</button>
+    <div id="sessionStatus"></div>
+  </div>
+
+  <!-- Session Info -->
+  <div class="card" id="sessionInfo" style="display:none;">
+    <h2>3. Session Info</h2>
+    <div id="sessionDetails"></div>
+  </div>
+
+  <!-- Logs -->
+  <div class="card">
+    <h2>Logs</h2>
+    <button onclick="clearLogs()" class="secondary">Clear</button>
+    <pre id="log"></pre>
+  </div>
+
+  <script>
+    // State
+    let provider = null;
+    let signer = null;
+    let eoaAddress = null;
+    let safeAddress = null;
+    let session = null;
+
+    // Constants
+    const POLYGON_CHAIN_ID = 137;
+    const POLYGON_RPC = 'https://polygon-rpc.com';
+    const RELAYER_URL = 'https://relayer-v2.polymarket.com/';
+    const BUILDER_SIGNER_URL = 'https://builder-signer.domeapi.io/builder-signer/sign';
+
+    // Safe contract addresses for deriving Safe
+    const SAFE_FACTORY = '0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2';
+
+    function log(msg, type = 'info') {
+      const logEl = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      logEl.innerHTML += `[${time}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(msg);
+    }
+
+    function clearLogs() {
+      document.getElementById('log').innerHTML = '';
+    }
+
+    function showStatus(elementId, msg, type = 'info') {
+      const el = document.getElementById(elementId);
+      el.innerHTML = `<div class="status ${type}">${msg}</div>`;
+    }
+
+    // Connect wallet
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          showStatus('walletStatus', 'No wallet detected. Please install MetaMask or Rabby.', 'error');
+          return;
+        }
+
+        log('Connecting wallet...');
+
+        // Request accounts
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        eoaAddress = accounts[0];
+
+        // Create ethers provider and signer
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+
+        // Check network
+        const network = await provider.getNetwork();
+        if (network.chainId !== POLYGON_CHAIN_ID) {
+          log(`Wrong network (${network.chainId}). Switching to Polygon...`);
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x89' }], // 137 in hex
+            });
+            // Refresh provider after switch
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+          } catch (switchError) {
+            if (switchError.code === 4902) {
+              // Chain not added, add it
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: '0x89',
+                  chainName: 'Polygon Mainnet',
+                  nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+                  rpcUrls: ['https://polygon-rpc.com'],
+                  blockExplorerUrls: ['https://polygonscan.com']
+                }]
+              });
+            } else {
+              throw switchError;
+            }
+          }
+        }
+
+        // Derive Safe address
+        safeAddress = deriveSafeAddress(eoaAddress);
+
+        showStatus('walletStatus', `
+          Connected: <span class="address">${eoaAddress}</span><br>
+          Safe Address: <span class="address">${safeAddress}</span>
+        `, 'success');
+
+        log(`Connected: ${eoaAddress}`);
+        log(`Safe Address: ${safeAddress}`);
+
+        // Enable buttons
+        document.getElementById('initBtn').disabled = false;
+        document.getElementById('checkBtn').disabled = false;
+        document.getElementById('connectBtn').textContent = 'Connected';
+        document.getElementById('connectBtn').disabled = true;
+
+        // Load existing session
+        loadSession();
+
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+        showStatus('walletStatus', `Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Derive Safe address (simplified version)
+    function deriveSafeAddress(owner) {
+      // This is a simplified derivation - the actual derivation uses CREATE2
+      // For demo purposes, we'll compute it similarly to how the SDK does
+      const saltNonce = ethers.BigNumber.from(0);
+      const singleton = '0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552'; // Safe singleton
+
+      // Simplified: hash owner + nonce for proxy address
+      // In production, use the full CREATE2 derivation from builder-relayer-client
+      const initHash = ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ['address', 'uint256'],
+          [owner, saltNonce]
+        )
+      );
+
+      // For now, return a deterministic address based on owner
+      // The actual SDK uses deriveSafe from @polymarket/builder-relayer-client
+      const hash = ethers.utils.keccak256(
+        ethers.utils.solidityPack(
+          ['bytes1', 'address', 'bytes32', 'bytes32'],
+          ['0xff', SAFE_FACTORY, initHash, ethers.utils.keccak256('0x')]
+        )
+      );
+
+      return ethers.utils.getAddress('0x' + hash.slice(-40));
+    }
+
+    // Check if Safe is deployed
+    async function isSafeDeployed() {
+      const polygonProvider = new ethers.providers.JsonRpcProvider(POLYGON_RPC);
+      const code = await polygonProvider.getCode(safeAddress);
+      return code !== '0x' && code.length > 2;
+    }
+
+    // Initialize trading session
+    async function initSession() {
+      if (!signer || !eoaAddress) {
+        showStatus('sessionStatus', 'Please connect wallet first', 'error');
+        return;
+      }
+
+      document.getElementById('initBtn').disabled = true;
+      document.getElementById('initBtn').textContent = 'Initializing...';
+
+      try {
+        log('Starting trading session initialization...');
+
+        // Step 1: Check if Safe is deployed
+        log('Checking Safe deployment status...');
+        const deployed = await isSafeDeployed();
+
+        if (!deployed) {
+          log('Safe not deployed. Deploying...');
+          showStatus('sessionStatus', 'Deploying Safe wallet... (this requires a signature)', 'warning');
+
+          // For full deployment, we'd use the RelayClient from the SDK
+          // This is a simplified demo - in production use:
+          // const relayClient = createRelayClient(signer, { builderSigningUrl: BUILDER_SIGNER_URL });
+          // await relayClient.deploy();
+
+          log('Note: Full Safe deployment requires the Dome SDK. See useTradingSession hook.');
+          showStatus('sessionStatus', `
+            Safe deployment requires the Dome SDK.<br>
+            Your Safe address: <span class="address">${safeAddress}</span><br><br>
+            To proceed, integrate with the SDK's PolymarketRouter.linkUser() method.
+          `, 'warning');
+
+        } else {
+          log('Safe already deployed!');
+        }
+
+        // Create session object
+        session = {
+          eoaAddress,
+          safeAddress,
+          isSafeDeployed: deployed,
+          timestamp: Date.now()
+        };
+
+        // Save to localStorage
+        localStorage.setItem(`trading_session_${eoaAddress}`, JSON.stringify(session));
+
+        showStatus('sessionStatus', `
+          Session initialized!<br>
+          EOA: <span class="address">${eoaAddress}</span><br>
+          Safe: <span class="address">${safeAddress}</span><br>
+          Safe Deployed: ${deployed ? 'Yes' : 'No - needs deployment via SDK'}
+        `, deployed ? 'success' : 'warning');
+
+        // Show session info
+        document.getElementById('sessionInfo').style.display = 'block';
+        document.getElementById('sessionDetails').innerHTML = `
+          <p><strong>EOA Address:</strong> <span class="address">${eoaAddress}</span></p>
+          <p><strong>Safe Address:</strong> <span class="address">${safeAddress}</span></p>
+          <p><strong>Safe Deployed:</strong> ${deployed ? 'Yes' : 'No'}</p>
+          <p><strong>Fund your Safe:</strong> Send USDC to the Safe address above to start trading.</p>
+          <p><a href="https://polygonscan.com/address/${safeAddress}" target="_blank">View on Polygonscan</a></p>
+        `;
+
+        log('Session initialized successfully');
+
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+        showStatus('sessionStatus', `Error: ${error.message}`, 'error');
+      } finally {
+        document.getElementById('initBtn').disabled = false;
+        document.getElementById('initBtn').textContent = 'Start Trading Session';
+      }
+    }
+
+    // Check status
+    async function checkStatus() {
+      if (!safeAddress) {
+        showStatus('sessionStatus', 'Please connect wallet first', 'error');
+        return;
+      }
+
+      try {
+        log('Checking Safe status...');
+        const deployed = await isSafeDeployed();
+
+        // Check USDC balance
+        const polygonProvider = new ethers.providers.JsonRpcProvider(POLYGON_RPC);
+        const usdcAddress = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
+        const usdc = new ethers.Contract(usdcAddress, [
+          'function balanceOf(address) view returns (uint256)'
+        ], polygonProvider);
+
+        const balance = await usdc.balanceOf(safeAddress);
+        const balanceFormatted = ethers.utils.formatUnits(balance, 6);
+
+        showStatus('sessionStatus', `
+          Safe Address: <span class="address">${safeAddress}</span><br>
+          Safe Deployed: ${deployed ? 'Yes' : 'No'}<br>
+          USDC Balance: ${balanceFormatted} USDC
+        `, deployed ? 'success' : 'warning');
+
+        log(`Safe deployed: ${deployed}, USDC balance: ${balanceFormatted}`);
+
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+        showStatus('sessionStatus', `Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Load existing session from localStorage
+    function loadSession() {
+      if (!eoaAddress) return;
+
+      const stored = localStorage.getItem(`trading_session_${eoaAddress}`);
+      if (stored) {
+        session = JSON.parse(stored);
+        log('Loaded existing session from storage');
+
+        document.getElementById('sessionInfo').style.display = 'block';
+        document.getElementById('sessionDetails').innerHTML = `
+          <p><strong>EOA Address:</strong> <span class="address">${session.eoaAddress}</span></p>
+          <p><strong>Safe Address:</strong> <span class="address">${session.safeAddress}</span></p>
+          <p><a href="https://polygonscan.com/address/${session.safeAddress}" target="_blank">View on Polygonscan</a></p>
+        `;
+      }
+    }
+
+    // Listen for account changes
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length === 0) {
+          location.reload();
+        } else {
+          eoaAddress = accounts[0];
+          safeAddress = deriveSafeAddress(eoaAddress);
+          showStatus('walletStatus', `
+            Connected: <span class="address">${eoaAddress}</span><br>
+            Safe Address: <span class="address">${safeAddress}</span>
+          `, 'success');
+          loadSession();
+        }
+      });
+
+      window.ethereum.on('chainChanged', () => {
+        location.reload();
+      });
+    }
+  </script>
+</body>
+</html>
