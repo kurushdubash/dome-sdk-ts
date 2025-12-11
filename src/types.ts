@@ -419,6 +419,22 @@ export interface WebSocketConfig {
 // ===== Router Types (Wallet-Agnostic) =====
 
 /**
+ * Wallet type for Polymarket trading
+ *
+ * - 'eoa': Standard Externally Owned Account (Privy embedded wallets, direct wallet signing)
+ *   - Uses signatureType = 0
+ *   - Signer address is the funder address
+ *   - Funds (USDC) are held directly in the EOA
+ *
+ * - 'safe': Safe Smart Account (external wallets like MetaMask, Rabby, etc.)
+ *   - Uses signatureType = 2 (browser wallet with Safe)
+ *   - Signer is the EOA, funder is the derived Safe address
+ *   - Funds (USDC) are held in the Safe wallet
+ *   - Requires Safe deployment before trading
+ */
+export type WalletType = 'eoa' | 'safe';
+
+/**
  * EIP-712 payload shape used by Dome router / Polymarket
  * This is the structure that needs to be signed by the user's wallet
  */
@@ -453,8 +469,27 @@ export interface LinkPolymarketUserParams {
   userId: string;
   /** Wallet/signing implementation (Privy, MetaMask, etc.) */
   signer: RouterSigner;
+
+  // === Wallet Type Selection ===
+  /**
+   * Type of wallet being used (default: 'eoa')
+   * - 'eoa': Privy embedded wallets, direct EOA signing
+   * - 'safe': External wallets (MetaMask, Rabby) with Safe smart account
+   */
+  walletType?: WalletType;
+
+  // === Safe Wallet Options (only for walletType: 'safe') ===
+  /**
+   * Whether to auto-deploy Safe if not already deployed (default: true)
+   * Only applies when walletType is 'safe'
+   */
+  autoDeploySafe?: boolean;
+
+  // === Privy Options (only for walletType: 'eoa' with Privy) ===
   /** Optional: Privy wallet ID (required for auto-setting allowances with Privy) */
   privyWalletId?: string;
+
+  // === Common Options ===
   /** Optional: Whether to automatically set token allowances if missing (default: true) */
   autoSetAllowances?: boolean;
   /** Optional: Use Privy gas sponsorship for allowance transactions (default: false) */
@@ -476,12 +511,36 @@ export interface PlaceOrderParams {
   size: number;
   /** Order price (0-1 for Polymarket) */
   price: number;
+
+  // === Wallet/Signer Options ===
   /** Wallet/signing implementation (required for signing orders) */
-  signer: RouterSigner;
+  signer?: RouterSigner;
+
+  // === Wallet Type Selection ===
+  /**
+   * Type of wallet being used (default: 'eoa')
+   * - 'eoa': Privy embedded wallets, direct EOA signing
+   * - 'safe': External wallets (MetaMask, Rabby) with Safe smart account
+   */
+  walletType?: WalletType;
+
+  // === Safe Wallet Options (only for walletType: 'safe') ===
+  /**
+   * The Safe smart account address that holds the user's funds
+   * Required when walletType is 'safe'
+   * This is the "funder" address for CLOB orders
+   */
+  funderAddress?: string;
+
+  // === Privy Options (only for walletType: 'eoa' with Privy) ===
   /** Optional: Privy wallet ID (if using Privy, avoids need for signer) */
   privyWalletId?: string;
   /** Optional: Wallet address (if using Privy, avoids need for signer) */
   walletAddress?: string;
+
+  // === Market Options ===
+  /** Whether the market uses neg risk (default: false) */
+  negRisk?: boolean;
 }
 
 /**
@@ -507,10 +566,74 @@ export interface PolymarketRouterConfig {
   chainId?: number;
   /** Polymarket CLOB endpoint (defaults to https://clob.polymarket.com) */
   clobEndpoint?: string;
+  /** Polymarket Relayer endpoint (defaults to https://relayer-v2.polymarket.com) */
+  relayerEndpoint?: string;
+  /** Polygon RPC URL (defaults to https://polygon-rpc.com) */
+  rpcUrl?: string;
   /** Optional: Privy configuration for automatic signer creation */
   privy?: PrivyRouterConfig;
   /** @deprecated Use chainId and clobEndpoint instead */
   baseURL?: string;
   /** @deprecated Not used in v0 (direct CLOB integration) */
   apiKey?: string;
+}
+
+// ===== Safe Wallet Types =====
+
+// Note: SafeInitResult is defined in src/utils/safe.ts to avoid circular dependencies
+
+/**
+ * Trading session for external wallet users
+ * Stores the state needed for trading with a Safe wallet
+ */
+export interface TradingSession {
+  /** EOA wallet address (the signer) */
+  eoaAddress: string;
+  /** Safe smart account address (the funder) */
+  safeAddress: string;
+  /** Whether the Safe has been deployed */
+  isSafeDeployed: boolean;
+  /** Whether API credentials have been derived */
+  hasApiCredentials: boolean;
+  /** Whether token allowances have been set */
+  hasAllowances: boolean;
+  /** Polymarket API credentials */
+  apiCredentials?: {
+    key: string;
+    secret: string;
+    passphrase: string;
+  };
+  /** Timestamp of last session check */
+  lastChecked: number;
+}
+
+/**
+ * Steps in the trading session initialization process
+ */
+export type SessionStep =
+  | 'idle'
+  | 'checking'
+  | 'deploying'
+  | 'credentials'
+  | 'allowances'
+  | 'complete';
+
+/**
+ * Result of linking a user with a Safe wallet
+ */
+export interface SafeLinkResult {
+  /** Polymarket API credentials */
+  credentials: {
+    apiKey: string;
+    apiSecret: string;
+    apiPassphrase: string;
+  };
+  /** Safe wallet address (funder for orders) */
+  safeAddress: string;
+  /** EOA wallet address (signer for orders) */
+  signerAddress: string;
+  /** Whether Safe was deployed during this call */
+  safeDeployed: boolean;
+  /** Number of allowances that were set */
+  allowancesSet: number;
 }

@@ -1,10 +1,13 @@
 import { ClobClient } from '@polymarket/clob-client';
 import { BuilderConfig as PolymarketBuilderConfig } from '@polymarket/builder-signing-sdk';
+import { RelayClient } from '@polymarket/builder-relayer-client';
 import {
   LinkPolymarketUserParams,
   PlaceOrderParams,
   PolymarketRouterConfig,
   RouterSigner,
+  WalletType,
+  SafeLinkResult,
 } from '../types.js';
 import {
   createPrivyClient,
@@ -17,12 +20,27 @@ import {
   setAllAllowances,
   getPolygonProvider,
 } from '../utils/allowances.js';
+import {
+  deriveSafeAddress,
+  isSafeDeployed,
+  createRelayClient,
+  deploySafe,
+  setSafeUsdcApproval,
+  checkSafeAllowances,
+  POLYGON_CHAIN_ID,
+  DEFAULT_RELAYER_URL,
+  DEFAULT_RPC_URL,
+} from '../utils/safe.js';
 
 /**
  * Polymarket Router Helper (v0 - Direct CLOB Integration)
  *
  * This helper provides a simple interface for Polymarket CLOB client integration
  * with any wallet provider (Privy, MetaMask, etc.).
+ *
+ * Supports two wallet types:
+ * 1. EOA wallets (Privy embedded, direct signing) - simpler setup
+ * 2. Safe wallets (external wallets like MetaMask) - requires Safe deployment
  *
  * Key flows:
  * 1. User signs ONE EIP-712 message to create a Polymarket CLOB API key
@@ -32,31 +50,41 @@ import {
  * This v0 version talks directly to Polymarket CLOB.
  * Future versions will route through Dome backend for additional features.
  *
- * @example
+ * @example EOA wallet (Privy):
  * ```typescript
- * import { PolymarketRouter } from '@dome-api/sdk/router';
- * import { createPrivySigner } from './privy-adapter.js';
- *
  * const router = new PolymarketRouter({
- *   chainId: 137, // Polygon mainnet
+ *   chainId: 137,
+ *   privy: { appId, appSecret, authorizationKey },
  * });
  *
- * // One-time setup: Link user to Polymarket
- * const signer = await createPrivySigner(privyUser);
  * const credentials = await router.linkUser({
  *   userId: 'user-123',
- *   signer
+ *   signer,
+ *   walletType: 'eoa',  // default
+ * });
+ * ```
+ *
+ * @example Safe wallet (external):
+ * ```typescript
+ * const router = new PolymarketRouter({ chainId: 137 });
+ *
+ * const result = await router.linkUser({
+ *   userId: 'user-123',
+ *   signer,
+ *   walletType: 'safe',
+ *   autoDeploySafe: true,
  * });
  *
- * // Store credentials.apiKey and credentials.apiSecret securely
- *
- * // Place orders using API keys (no more wallet signatures!)
+ * // result includes safeAddress for placing orders
  * await router.placeOrder({
  *   userId: 'user-123',
- *   marketId: '0x123...',  // condition_id
+ *   marketId: '0x...',
  *   side: 'buy',
  *   size: 10,
  *   price: 0.65,
+ *   walletType: 'safe',
+ *   funderAddress: result.safeAddress,
+ *   signer,
  * }, credentials);
  * ```
  */
@@ -84,14 +112,20 @@ interface AllowanceCheckResult {
 export class PolymarketRouter {
   private readonly chainId: number;
   private readonly clobClient: ClobClient;
+  private readonly relayerUrl: string;
+  private readonly rpcUrl: string;
   // In-memory storage of user credentials (use your preferred storage in production)
   private readonly userCredentials = new Map<string, PolymarketCredentials>();
+  // In-memory storage of user Safe addresses
+  private readonly userSafeAddresses = new Map<string, string>();
   private readonly privyClient?: any; // PrivyClient type
   private readonly privyConfig?: PolymarketRouterConfig['privy'];
   private readonly builderConfig?: PolymarketBuilderConfig;
 
   constructor(config: PolymarketRouterConfig = {}) {
-    this.chainId = config.chainId || 137; // Polygon mainnet by default
+    this.chainId = config.chainId || POLYGON_CHAIN_ID;
+    this.relayerUrl = config.relayerEndpoint || DEFAULT_RELAYER_URL;
+    this.rpcUrl = config.rpcUrl || DEFAULT_RPC_URL;
 
     // Always use Dome builder server for improved order execution
     this.builderConfig = new PolymarketBuilderConfig({
@@ -129,32 +163,61 @@ export class PolymarketRouter {
   }
 
   /**
+   * Create ethers adapter from RouterSigner
+   */
+  private createEthersAdapter(
+    signer: RouterSigner,
+    address: string
+  ): {
+    getAddress: () => Promise<string>;
+    _signTypedData: (domain: any, types: any, value: any) => Promise<string>;
+  } {
+    return {
+      getAddress: async () => address,
+      _signTypedData: async (domain: any, types: any, value: any) => {
+        return await signer.signTypedData({
+          domain,
+          types,
+          primaryType:
+            Object.keys(types).find(key => key !== 'EIP712Domain') || '',
+          message: value,
+        });
+      },
+    };
+  }
+
+  /**
    * Links a user to Polymarket by creating a CLOB API key
    *
-   * This method:
-   * 1. Gets the user's wallet address
-   * 2. Creates a Polymarket CLOB client for the user
-   * 3. Derives API credentials using ONE signature
-   * 4. Returns credentials to be stored securely
+   * For EOA wallets (walletType: 'eoa'):
+   * - Gets the user's wallet address
+   * - Creates a Polymarket CLOB client for the user
+   * - Derives API credentials using ONE signature
+   *
+   * For Safe wallets (walletType: 'safe'):
+   * - Derives the Safe address from the EOA
+   * - Deploys the Safe if needed
+   * - Sets token allowances from the Safe
+   * - Creates API credentials
    *
    * After this completes, the user can trade using API keys without signing each order.
-   *
-   * @param params - User ID and signer implementation
-   * @returns Promise that resolves with Polymarket CLOB credentials
-   *
-   * @example
-   * ```typescript
-   * const signer = await createPrivySigner(privyUser);
-   * const credentials = await router.linkUser({
-   *   userId: 'user-123',
-   *   signer: signer,
-   * });
-   *
-   * // Store credentials.apiKey, credentials.apiSecret, credentials.apiPassphrase
-   * // in your database or secure storage
-   * ```
    */
   async linkUser(
+    params: LinkPolymarketUserParams
+  ): Promise<PolymarketCredentials | SafeLinkResult> {
+    const walletType = params.walletType || 'eoa';
+
+    if (walletType === 'safe') {
+      return this.linkUserWithSafe(params);
+    } else {
+      return this.linkUserWithEoa(params);
+    }
+  }
+
+  /**
+   * Link user with EOA wallet (Privy or direct signing)
+   */
+  private async linkUserWithEoa(
     params: LinkPolymarketUserParams
   ): Promise<PolymarketCredentials> {
     const {
@@ -188,47 +251,158 @@ export class PolymarketRouter {
             sponsor: sponsorGas,
           }
         );
-        console.log('   ✅ Token allowances set');
+        console.log('   Token allowances set');
       } else {
-        console.log('   ✅ Token allowances already set');
+        console.log('   Token allowances already set');
       }
     }
 
-    // Create user-specific CLOB client with the signer
-    // We need to adapt RouterSigner to ethers Wallet interface
-    const ethersAdapter = {
-      getAddress: async () => address,
-      _signTypedData: async (domain: any, types: any, value: any) => {
-        // Convert ethers _signTypedData call to our Eip712Payload format
-        return await signer.signTypedData({
-          domain,
-          types,
-          primaryType:
-            Object.keys(types).find(key => key !== 'EIP712Domain') || '',
-          message: value,
-        });
-      },
-    };
+    // Create ethers adapter
+    const ethersAdapter = this.createEthersAdapter(signer, address);
 
     const userClobClient = new ClobClient(
       this.clobClient.host,
       this.chainId,
-      ethersAdapter as any, // Adapt our signer to ethers interface
-      undefined, // apiKeyCreds (not needed for linkUser)
-      undefined, // signatureType
-      undefined, // funderAddress
-      undefined, // geoBlockToken
-      false, // useServerTime
-      this.builderConfig // Pass builder config
+      ethersAdapter as any,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      this.builderConfig
     );
 
-    // Try to derive existing API credentials first
-    let apiKeyCreds;
+    // Derive or create API credentials
+    const apiKeyCreds = await this.deriveOrCreateApiCredentials(userClobClient);
+
+    const credentials: PolymarketCredentials = {
+      apiKey: apiKeyCreds.key,
+      apiSecret: apiKeyCreds.secret,
+      apiPassphrase: apiKeyCreds.passphrase,
+    };
+
+    this.userCredentials.set(userId, credentials);
+
+    return credentials;
+  }
+
+  /**
+   * Link user with Safe wallet (external wallets)
+   */
+  private async linkUserWithSafe(
+    params: LinkPolymarketUserParams
+  ): Promise<SafeLinkResult> {
+    const {
+      userId,
+      signer,
+      autoDeploySafe = true,
+      autoSetAllowances = true,
+    } = params;
+
+    const eoaAddress = await signer.getAddress();
+    console.log(`   EOA address: ${eoaAddress}`);
+
+    // Step 1: Derive Safe address
+    console.log('   Deriving Safe address...');
+    const safeAddress = deriveSafeAddress(eoaAddress, this.chainId);
+    console.log(`   Safe address: ${safeAddress}`);
+
+    // Step 2: Check if Safe is deployed
+    const provider = getPolygonProvider(this.rpcUrl);
+    let safeDeployed = await isSafeDeployed(safeAddress, provider);
+
+    // Step 3: Deploy Safe if needed
+    if (!safeDeployed && autoDeploySafe) {
+      console.log('   Deploying Safe wallet...');
+      const relayClient = createRelayClient(signer, {
+        relayerUrl: this.relayerUrl,
+        rpcUrl: this.rpcUrl,
+        chainId: this.chainId,
+      });
+
+      const deployResult = await deploySafe(relayClient);
+      console.log(`   Safe deployed: ${deployResult.safeAddress}`);
+      safeDeployed = true;
+    } else if (!safeDeployed) {
+      throw new Error(
+        `Safe not deployed at ${safeAddress}. Set autoDeploySafe: true to deploy automatically.`
+      );
+    } else {
+      console.log('   Safe already deployed');
+    }
+
+    // Step 4: Set allowances from Safe if needed
+    let allowancesSet = 0;
+    if (autoSetAllowances) {
+      console.log('   Checking Safe allowances...');
+      const allowances = await checkSafeAllowances(safeAddress, provider);
+
+      if (!allowances.allSet) {
+        console.log('   Setting Safe allowances...');
+        const relayClient = createRelayClient(signer, {
+          relayerUrl: this.relayerUrl,
+          rpcUrl: this.rpcUrl,
+          chainId: this.chainId,
+        });
+        await setSafeUsdcApproval(relayClient);
+        allowancesSet = 3; // CTF Exchange, Neg Risk CTF Exchange, Neg Risk Adapter
+        console.log('   Safe allowances set');
+      } else {
+        console.log('   Safe allowances already set');
+      }
+    }
+
+    // Step 5: Create API credentials
+    // For Safe wallets, we use signatureType = 2 (browser wallet)
+    console.log('   Deriving API credentials...');
+    const ethersAdapter = this.createEthersAdapter(signer, eoaAddress);
+
+    // Create CLOB client with Safe as funder
+    const userClobClient = new ClobClient(
+      this.clobClient.host,
+      this.chainId,
+      ethersAdapter as any,
+      undefined,
+      2, // signatureType = 2 for browser wallet with Safe
+      safeAddress, // funderAddress = Safe
+      undefined,
+      false,
+      this.builderConfig
+    );
+
+    const apiKeyCreds = await this.deriveOrCreateApiCredentials(userClobClient);
+
+    const credentials: PolymarketCredentials = {
+      apiKey: apiKeyCreds.key,
+      apiSecret: apiKeyCreds.secret,
+      apiPassphrase: apiKeyCreds.passphrase,
+    };
+
+    // Store credentials and Safe address
+    this.userCredentials.set(userId, credentials);
+    this.userSafeAddresses.set(userId, safeAddress);
+
+    console.log('   User linked successfully');
+
+    return {
+      credentials,
+      safeAddress,
+      signerAddress: eoaAddress,
+      safeDeployed: !safeDeployed, // true if we deployed it during this call
+      allowancesSet,
+    };
+  }
+
+  /**
+   * Helper to derive or create API credentials
+   */
+  private async deriveOrCreateApiCredentials(
+    clobClient: ClobClient
+  ): Promise<{ key: string; secret: string; passphrase: string }> {
     try {
       console.log('   Attempting to derive existing API credentials...');
-      apiKeyCreds = await userClobClient.deriveApiKey();
+      const apiKeyCreds = await clobClient.deriveApiKey();
 
-      // Validate credentials
       if (
         !apiKeyCreds ||
         !apiKeyCreds.key ||
@@ -238,18 +412,20 @@ export class PolymarketRouter {
         throw new Error('Derived credentials are invalid or incomplete');
       }
 
-      console.log('   ✅ Successfully derived existing API credentials');
+      console.log('   Successfully derived existing API credentials');
+      return apiKeyCreds;
     } catch (deriveError: any) {
       console.log(
         `   Derive failed (${deriveError.message}), attempting to create new credentials...`
       );
 
       try {
-        apiKeyCreds = await userClobClient.createApiKey();
-        console.log('   ✅ Successfully created new API credentials');
+        const apiKeyCreds = await clobClient.createApiKey();
+        console.log('   Successfully created new API credentials');
+        return apiKeyCreds;
       } catch (createError: any) {
         console.error(
-          '   ❌ Failed to create API credentials:',
+          '   Failed to create API credentials:',
           createError.message
         );
         throw new Error(
@@ -257,18 +433,6 @@ export class PolymarketRouter {
         );
       }
     }
-
-    // Convert ApiKeyCreds to our PolymarketCredentials format
-    const credentials: PolymarketCredentials = {
-      apiKey: apiKeyCreds.key,
-      apiSecret: apiKeyCreds.secret,
-      apiPassphrase: apiKeyCreds.passphrase,
-    };
-
-    // Store credentials in memory (you should store in your DB)
-    this.userCredentials.set(userId, credentials);
-
-    return credentials;
   }
 
   /**
@@ -277,20 +441,8 @@ export class PolymarketRouter {
    * This uses the API credentials created during linkUser(), so no wallet signature is needed.
    * Communicates directly with Polymarket CLOB.
    *
-   * @param params - Order parameters
-   * @param credentials - Polymarket CLOB credentials (from linkUser)
-   * @returns Promise that resolves with the order response
-   *
-   * @example
-   * ```typescript
-   * const orderResponse = await router.placeOrder({
-   *   userId: 'user-123',
-   *   marketId: '0x123...', // condition_id
-   *   side: 'buy',
-   *   size: 10,
-   *   price: 0.65,
-   * }, credentials);
-   * ```
+   * For EOA wallets: signer address is the funder
+   * For Safe wallets: Safe address is the funder, EOA is the signer
    */
   async placeOrder(
     params: PlaceOrderParams,
@@ -303,8 +455,11 @@ export class PolymarketRouter {
       size,
       price,
       signer,
+      walletType = 'eoa',
+      funderAddress,
       privyWalletId,
       walletAddress,
+      negRisk = false,
     } = params;
 
     // Auto-create signer if Privy wallet info provided
@@ -320,7 +475,7 @@ export class PolymarketRouter {
       );
     }
 
-    // Get credentials (from parameter or in-memory storage)
+    // Get credentials
     const creds = credentials || this.userCredentials.get(userId);
     if (!creds) {
       throw new Error(
@@ -328,103 +483,118 @@ export class PolymarketRouter {
       );
     }
 
-    // Convert credentials format from PolymarketCredentials to ApiKeyCreds
     const apiKeyCreds = {
       key: creds.apiKey,
       secret: creds.apiSecret,
       passphrase: creds.apiPassphrase,
     };
 
-    // Get the user's wallet address
-    const address = await actualSigner.getAddress();
+    const signerAddress = await actualSigner.getAddress();
+    const ethersAdapter = this.createEthersAdapter(actualSigner, signerAddress);
 
-    // Create ethers adapter for the signer (same as in linkUser)
-    const ethersAdapter = {
-      getAddress: async () => address,
-      _signTypedData: async (domain: any, types: any, value: any) => {
-        return await actualSigner.signTypedData({
-          domain,
-          types,
-          primaryType:
-            Object.keys(types).find(key => key !== 'EIP712Domain') || '',
-          message: value,
-        });
-      },
-    };
+    // Determine signature type and funder based on wallet type
+    let signatureType: number;
+    let funder: string | undefined;
 
-    // Create authenticated CLOB client for this user with both credentials AND signer
-    // For EOA wallets, the signer address is also the funder (where USDC is held)
-    // Using signatureType = 0 for standard EOA/browser wallet signing
+    if (walletType === 'safe') {
+      signatureType = 2; // Browser wallet with Safe
+      funder = funderAddress || this.userSafeAddresses.get(userId) || undefined;
+
+      if (!funder) {
+        throw new Error(
+          'funderAddress is required for Safe wallet orders. Pass it explicitly or ensure linkUser was called with walletType: "safe".'
+        );
+      }
+    } else {
+      signatureType = 0; // EOA
+      funder = undefined; // Uses signer address
+    }
+
+    // Create authenticated CLOB client
     const userClobClient = new ClobClient(
       this.clobClient.host,
       this.chainId,
-      ethersAdapter as any, // Signer for order signing
-      apiKeyCreds, // API credentials for authentication
-      0, // signatureType = 0 for browser wallet/EOA
-      undefined, // funderAddress (undefined for EOA - uses signer address)
-      undefined, // geoBlockToken
-      false, // useServerTime
-      this.builderConfig // Pass builder config
+      ethersAdapter as any,
+      apiKeyCreds,
+      signatureType,
+      funder,
+      undefined,
+      false,
+      this.builderConfig
     );
 
-    // Place order using CLOB client
-    // Convert side to correct enum format
+    // Place order
     const orderSide = side.toLowerCase() === 'buy' ? 'BUY' : 'SELL';
 
-    const orderResponse = await userClobClient.createAndPostOrder({
-      tokenID: marketId,
-      price,
-      size,
-      side: orderSide as any, // Use any to avoid type issues with the enum
-    });
+    const orderResponse = await userClobClient.createAndPostOrder(
+      {
+        tokenID: marketId,
+        price,
+        size,
+        side: orderSide as any,
+      },
+      { negRisk }
+    );
 
     return orderResponse;
   }
 
   /**
+   * Get the Safe address for a user (if using Safe wallet)
+   */
+  getSafeAddress(userId: string): string | undefined {
+    return this.userSafeAddresses.get(userId);
+  }
+
+  /**
+   * Derive Safe address from EOA (without deployment)
+   */
+  deriveSafeAddress(eoaAddress: string): string {
+    return deriveSafeAddress(eoaAddress, this.chainId);
+  }
+
+  /**
+   * Check if a Safe is deployed
+   */
+  async isSafeDeployed(safeAddress: string): Promise<boolean> {
+    const provider = getPolygonProvider(this.rpcUrl);
+    return isSafeDeployed(safeAddress, provider);
+  }
+
+  /**
+   * Create a RelayClient for Safe operations
+   */
+  createRelayClient(signer: RouterSigner): RelayClient {
+    return createRelayClient(signer, {
+      relayerUrl: this.relayerUrl,
+      rpcUrl: this.rpcUrl,
+      chainId: this.chainId,
+    });
+  }
+
+  /**
    * Checks if a user has already been linked to Polymarket
-   *
-   * @param userId - Customer's internal user ID
-   * @returns Promise that resolves to true if linked, false otherwise
-   *
-   * @example
-   * ```typescript
-   * const isLinked = await router.isUserLinked('user-123');
-   * if (!isLinked) {
-   *   const credentials = await router.linkUser({ userId: 'user-123', signer });
-   *   // Store credentials
-   * }
-   * ```
    */
   isUserLinked(userId: string): boolean {
     return this.userCredentials.has(userId);
   }
 
   /**
-   * Manually set credentials for a user (if you stored them previously)
-   *
-   * @param userId - Customer's internal user ID
-   * @param credentials - Previously stored credentials
-   *
-   * @example
-   * ```typescript
-   * // After retrieving from your database
-   * router.setCredentials('user-123', {
-   *   apiKey: '...',
-   *   apiSecret: '...',
-   *   apiPassphrase: '...',
-   * });
-   * ```
+   * Manually set credentials for a user
    */
   setCredentials(userId: string, credentials: PolymarketCredentials): void {
     this.userCredentials.set(userId, credentials);
   }
 
   /**
+   * Manually set Safe address for a user
+   */
+  setSafeAddress(userId: string, safeAddress: string): void {
+    this.userSafeAddresses.set(userId, safeAddress);
+  }
+
+  /**
    * Get stored credentials for a user
-   *
-   * @param userId - Customer's internal user ID
-   * @returns Credentials if found, undefined otherwise
    */
   getCredentials(userId: string): PolymarketCredentials | undefined {
     return this.userCredentials.get(userId);
@@ -432,61 +602,33 @@ export class PolymarketRouter {
 
   /**
    * Check if a wallet has all required token allowances for Polymarket trading
-   *
-   * This checks both USDC and Conditional Token Framework (CTF) approvals
-   * for all three Polymarket exchange contracts.
-   *
-   * @param walletAddress - Ethereum address to check
-   * @param rpcUrl - Optional custom Polygon RPC URL
-   * @returns Promise with allowance status
-   *
-   * @example
-   * ```typescript
-   * const allowances = await router.checkAllowances('0x123...');
-   * if (!allowances.allSet) {
-   *   console.log('Missing allowances:', allowances);
-   *   // Use setAllowances() to fix
-   * }
-   * ```
    */
   async checkAllowances(
     walletAddress: string,
     rpcUrl?: string
   ): Promise<AllowanceCheckResult> {
-    const provider = getPolygonProvider(rpcUrl);
+    const provider = getPolygonProvider(rpcUrl || this.rpcUrl);
     return await checkAllAllowances(walletAddress, provider);
   }
 
   /**
-   * Set all required token allowances for Polymarket trading
-   *
-   * This will approve:
-   * - USDC spending for all 3 Polymarket exchange contracts
-   * - CTF (Conditional Token Framework) tokens for all 3 exchange contracts
-   *
-   * Each approval requires a separate on-chain transaction. Only missing
-   * approvals will be set, so this is safe to call multiple times.
-   *
-   * IMPORTANT: This will prompt the user to sign up to 6 transactions
-   * (USDC + CTF for each of 3 contracts). These approvals only need to
-   * be done ONCE per wallet, ever.
-   *
-   * @param signer - RouterSigner implementation (Privy, MetaMask, etc.)
-   * @param rpcUrl - Optional custom Polygon RPC URL
-   * @param onProgress - Optional callback for progress updates
-   * @returns Promise with transaction hashes for each approval
-   *
-   * @example
-   * ```typescript
-   * const signer = createPrivySigner(privy, walletId, address);
-   *
-   * // With progress tracking
-   * const txs = await router.setAllowances(signer, undefined, (step, current, total) => {
-   *   console.log(`[${current}/${total}] ${step}`);
-   * });
-   *
-   * console.log('Approval transactions:', txs);
-   * ```
+   * Check if a Safe has all required allowances
+   */
+  async checkSafeAllowances(
+    safeAddress: string,
+    rpcUrl?: string
+  ): Promise<{
+    allSet: boolean;
+    ctfExchange: boolean;
+    negRiskCtfExchange: boolean;
+    negRiskAdapter: boolean;
+  }> {
+    const provider = getPolygonProvider(rpcUrl || this.rpcUrl);
+    return await checkSafeAllowances(safeAddress, provider);
+  }
+
+  /**
+   * Set all required token allowances for Polymarket trading (EOA wallets)
    */
   async setAllowances(
     signer: RouterSigner,
@@ -504,8 +646,19 @@ export class PolymarketRouter {
       negRiskAdapter?: string;
     };
   }> {
-    const provider = getPolygonProvider(rpcUrl);
+    const provider = getPolygonProvider(rpcUrl || this.rpcUrl);
     return await setAllAllowances(signer, provider, onProgress);
+  }
+
+  /**
+   * Set allowances for a Safe wallet
+   */
+  async setSafeAllowances(
+    signer: RouterSigner,
+    onProgress?: (step: string) => void
+  ): Promise<void> {
+    const relayClient = this.createRelayClient(signer);
+    await setSafeUsdcApproval(relayClient, onProgress);
   }
 }
 

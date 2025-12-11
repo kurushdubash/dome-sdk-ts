@@ -81,8 +81,11 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
+    "@polymarket/builder-relayer-client": "^0.0.6",
+    "@polymarket/builder-signing-sdk": "^0.0.8",
     "@polymarket/clob-client": "^4.22.8",
     "axios": "^1.7.2",
+    "ethers": "^5.8.0",
     "tslib": "^2.8.1",
     "ws": "^8.18.0"
   },
