@@ -477,6 +477,7 @@ export class PolymarketRouter {
       privyWalletId,
       walletAddress,
       negRisk = false,
+      orderType = 'GTC',
     } = params;
 
     // Auto-create signer if Privy wallet info provided
@@ -583,7 +584,7 @@ export class PolymarketRouter {
       id: clientOrderId,
       params: {
         signedOrder: signedOrderPayload,
-        orderType: 'GTC',
+        orderType,
         credentials: {
           apiKey: creds.apiKey,
           apiSecret: creds.apiSecret,
