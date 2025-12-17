@@ -560,8 +560,12 @@ export interface PrivyRouterConfig {
  *
  * The router automatically uses Dome's builder server (https://builder-signer.domeapi.io/builder-signer/sign)
  * for improved order execution, routing, and reduced MEV exposure.
+ *
+ * Orders are placed via Dome API (https://api.domeapi.io/v1) which requires an API key.
  */
 export interface PolymarketRouterConfig {
+  /** Dome API key for order placement (required for placeOrder) */
+  apiKey?: string;
   /** Chain ID (137 for Polygon mainnet, 80002 for Amoy testnet) */
   chainId?: number;
   /** Polymarket CLOB endpoint (defaults to https://clob.polymarket.com) */
@@ -574,8 +578,6 @@ export interface PolymarketRouterConfig {
   privy?: PrivyRouterConfig;
   /** @deprecated Use chainId and clobEndpoint instead */
   baseURL?: string;
-  /** @deprecated Not used in v0 (direct CLOB integration) */
-  apiKey?: string;
 }
 
 // ===== Safe Wallet Types =====
@@ -636,4 +638,95 @@ export interface SafeLinkResult {
   safeDeployed: boolean;
   /** Number of allowances that were set */
   allowancesSet: number;
+}
+
+// ===== Server-Side Order Placement Types =====
+
+/**
+ * Signed order structure for Polymarket CLOB
+ * This is the order that has been signed by the user's wallet
+ */
+export interface SignedPolymarketOrder {
+  salt: string;
+  maker: string;
+  signer: string;
+  taker: string;
+  tokenId: string;
+  makerAmount: string;
+  takerAmount: string;
+  expiration: string;
+  nonce: string;
+  feeRateBps: string;
+  side: 'BUY' | 'SELL';
+  signatureType: number;
+  signature: string;
+}
+
+/**
+ * Polymarket CLOB credentials
+ */
+export interface PolymarketCredentials {
+  apiKey: string;
+  apiSecret: string;
+  apiPassphrase: string;
+}
+
+/**
+ * Order type for Polymarket CLOB
+ */
+export type PolymarketOrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK';
+
+/**
+ * Request to place an order via Dome server
+ */
+export interface ServerPlaceOrderRequest {
+  jsonrpc: '2.0';
+  method: 'placeOrder';
+  id: string;
+  params: {
+    signedOrder: SignedPolymarketOrder;
+    orderType?: PolymarketOrderType;
+    credentials: PolymarketCredentials;
+    clientOrderId: string;
+  };
+}
+
+/**
+ * Successful order placement result
+ */
+export interface ServerPlaceOrderResult {
+  success: true;
+  orderId: string;
+  clientOrderId: string;
+  status: 'LIVE' | 'MATCHED' | 'DELAYED';
+  orderHash?: string;
+  transactionHashes?: string[];
+  metadata: {
+    region: string;
+    latencyMs: number;
+    timestamp: number;
+  };
+}
+
+/**
+ * Error from server order placement
+ */
+export interface ServerPlaceOrderError {
+  code: number;
+  message: string;
+  data?: {
+    reason: string;
+    maker?: string;
+    tokenId?: string;
+  };
+}
+
+/**
+ * Response from Dome server for order placement
+ */
+export interface ServerPlaceOrderResponse {
+  jsonrpc: '2.0';
+  id: string;
+  result?: ServerPlaceOrderResult;
+  error?: ServerPlaceOrderError;
 }

@@ -6,8 +6,11 @@ import {
   PlaceOrderParams,
   PolymarketRouterConfig,
   RouterSigner,
-  WalletType,
   SafeLinkResult,
+  SignedPolymarketOrder,
+  PolymarketCredentials,
+  ServerPlaceOrderRequest,
+  ServerPlaceOrderResponse,
 } from '../types.js';
 import {
   createPrivyClient,
@@ -89,12 +92,6 @@ import {
  * ```
  */
 
-interface PolymarketCredentials {
-  apiKey: string;
-  apiSecret: string;
-  apiPassphrase: string;
-}
-
 interface AllowanceCheckResult {
   allSet: boolean;
   usdc: {
@@ -109,6 +106,9 @@ interface AllowanceCheckResult {
   };
 }
 
+// Dome API endpoint (hardcoded, same as other SDK endpoints)
+const DOME_API_ENDPOINT = 'https://api.domeapi.io/v1';
+
 export class PolymarketRouter {
   private readonly chainId: number;
   private readonly clobClient: ClobClient;
@@ -121,11 +121,14 @@ export class PolymarketRouter {
   private readonly privyClient?: any; // PrivyClient type
   private readonly privyConfig?: PolymarketRouterConfig['privy'];
   private readonly builderConfig?: PolymarketBuilderConfig;
+  // Dome API key for order placement
+  private readonly apiKey: string | undefined;
 
   constructor(config: PolymarketRouterConfig = {}) {
     this.chainId = config.chainId || POLYGON_CHAIN_ID;
     this.relayerUrl = config.relayerEndpoint || DEFAULT_RELAYER_URL;
     this.rpcUrl = config.rpcUrl || DEFAULT_RPC_URL;
+    this.apiKey = config.apiKey ?? undefined;
 
     // Always use Dome builder server for improved order execution
     this.builderConfig = new PolymarketBuilderConfig({
@@ -436,10 +439,18 @@ export class PolymarketRouter {
   }
 
   /**
-   * Places an order on Polymarket directly via CLOB
+   * Places an order on Polymarket via Dome server
    *
-   * This uses the API credentials created during linkUser(), so no wallet signature is needed.
-   * Communicates directly with Polymarket CLOB.
+   * This method:
+   * 1. Creates and signs the order locally using the CLOB client
+   * 2. Submits the signed order to Dome server for execution
+   *
+   * Benefits:
+   * - Geo-unrestricted order placement (server handles CLOB communication)
+   * - Observability on order volume and market activity
+   * - Consistent latency from server regions
+   *
+   * Requires apiKey to be set in router constructor.
    *
    * For EOA wallets: signer address is the funder
    * For Safe wallets: Safe address is the funder, EOA is the signer
@@ -448,6 +459,12 @@ export class PolymarketRouter {
     params: PlaceOrderParams,
     credentials?: PolymarketCredentials
   ): Promise<any> {
+    if (!this.apiKey) {
+      throw new Error(
+        'Dome API key not set. Pass apiKey to router constructor to use placeOrder.'
+      );
+    }
+
     const {
       userId,
       marketId,
@@ -483,34 +500,35 @@ export class PolymarketRouter {
       );
     }
 
-    const apiKeyCreds = {
-      key: creds.apiKey,
-      secret: creds.apiSecret,
-      passphrase: creds.apiPassphrase,
-    };
-
     const signerAddress = await actualSigner.getAddress();
     const ethersAdapter = this.createEthersAdapter(actualSigner, signerAddress);
 
     // Determine signature type and funder based on wallet type
     let signatureType: number;
-    let funder: string | undefined;
+    let funder: string;
 
     if (walletType === 'safe') {
       signatureType = 2; // Browser wallet with Safe
-      funder = funderAddress || this.userSafeAddresses.get(userId) || undefined;
+      funder =
+        funderAddress || this.userSafeAddresses.get(userId) || signerAddress;
 
-      if (!funder) {
+      if (!funderAddress && !this.userSafeAddresses.get(userId)) {
         throw new Error(
           'funderAddress is required for Safe wallet orders. Pass it explicitly or ensure linkUser was called with walletType: "safe".'
         );
       }
     } else {
       signatureType = 0; // EOA
-      funder = undefined; // Uses signer address
+      funder = signerAddress;
     }
 
-    // Create authenticated CLOB client
+    const apiKeyCreds = {
+      key: creds.apiKey,
+      secret: creds.apiSecret,
+      passphrase: creds.apiPassphrase,
+    };
+
+    // Create CLOB client for signing
     const userClobClient = new ClobClient(
       this.clobClient.host,
       this.chainId,
@@ -523,10 +541,10 @@ export class PolymarketRouter {
       this.builderConfig
     );
 
-    // Place order
+    // Create and sign the order (but don't post it)
     const orderSide = side.toLowerCase() === 'buy' ? 'BUY' : 'SELL';
 
-    const orderResponse = await userClobClient.createAndPostOrder(
+    const signedOrder = await userClobClient.createOrder(
       {
         tokenID: marketId,
         price,
@@ -536,7 +554,99 @@ export class PolymarketRouter {
       { negRisk }
     );
 
-    return orderResponse;
+    // Convert to the format expected by server
+    const signedOrderPayload: SignedPolymarketOrder = {
+      salt: signedOrder.salt,
+      maker: signedOrder.maker,
+      signer: signedOrder.signer,
+      taker: signedOrder.taker,
+      tokenId: signedOrder.tokenId,
+      makerAmount: signedOrder.makerAmount,
+      takerAmount: signedOrder.takerAmount,
+      expiration: signedOrder.expiration,
+      nonce: signedOrder.nonce,
+      feeRateBps: signedOrder.feeRateBps,
+      side: orderSide as 'BUY' | 'SELL',
+      signatureType: signedOrder.signatureType,
+      signature: signedOrder.signature,
+    };
+
+    // Generate client order ID
+    const clientOrderId =
+      crypto.randomUUID?.() ||
+      `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Build server request
+    const request: ServerPlaceOrderRequest = {
+      jsonrpc: '2.0',
+      method: 'placeOrder',
+      id: clientOrderId,
+      params: {
+        signedOrder: signedOrderPayload,
+        orderType: 'GTC',
+        credentials: {
+          apiKey: creds.apiKey,
+          apiSecret: creds.apiSecret,
+          apiPassphrase: creds.apiPassphrase,
+        },
+        clientOrderId,
+      },
+    };
+
+    // Submit to Dome server
+    const response = await fetch(`${DOME_API_ENDPOINT}/polymarket/placeOrder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      // Try to get error details from response body
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch {
+        // Ignore if we can't read the body
+      }
+      throw new Error(
+        `Server request failed: ${response.status} ${response.statusText}${errorBody ? ` - ${errorBody}` : ''}`
+      );
+    }
+
+    const serverResponse: ServerPlaceOrderResponse = await response.json();
+
+    if (serverResponse.error) {
+      throw new Error(
+        `Order placement failed: ${serverResponse.error.message} (code: ${serverResponse.error.code})`
+      );
+    }
+
+    if (!serverResponse.result) {
+      throw new Error('Server returned empty result');
+    }
+
+    // Check if the server returned an HTTP error status from Polymarket
+    // The status field might be a number (HTTP status) instead of a string ('LIVE', 'MATCHED', etc.)
+    const result = serverResponse.result as any;
+    if (typeof result.status === 'number' && result.status >= 400) {
+      const errorMessage =
+        result.errorMessage ||
+        result.error ||
+        `Polymarket returned HTTP ${result.status}`;
+      throw new Error(`Order rejected by Polymarket: ${errorMessage}`);
+    }
+
+    return serverResponse.result;
+  }
+
+  /**
+   * Check if Dome API key is configured for order placement
+   */
+  isApiKeyConfigured(): boolean {
+    return !!this.apiKey;
   }
 
   /**
@@ -661,6 +771,3 @@ export class PolymarketRouter {
     await setSafeUsdcApproval(relayClient, onProgress);
   }
 }
-
-// Export the credentials type for use by consumers
-export type { PolymarketCredentials };
