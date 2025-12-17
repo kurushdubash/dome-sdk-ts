@@ -13,7 +13,6 @@
  */
 
 export { PolymarketRouter } from './polymarket.js';
-export type { PolymarketCredentials } from './polymarket.js';
 export type {
   RouterSigner,
   LinkPolymarketUserParams,
@@ -24,6 +23,13 @@ export type {
   TradingSession,
   SessionStep,
   SafeLinkResult,
+  PolymarketCredentials,
+  SignedPolymarketOrder,
+  PolymarketOrderType,
+  ServerPlaceOrderRequest,
+  ServerPlaceOrderResponse,
+  ServerPlaceOrderResult,
+  ServerPlaceOrderError,
 } from '../types.js';
 
 // Re-export SafeInitResult from safe.ts (it's defined there to avoid circular deps)

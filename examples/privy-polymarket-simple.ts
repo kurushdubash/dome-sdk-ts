@@ -9,6 +9,7 @@
  * 2. Set environment variables (see .env.example)
  * 3. Create a wallet with Privy (or use existing user wallet)
  * 4. Fund wallet with USDC.e on Polygon
+ * 5. Get a Dome API key (set DOME_API_KEY env var)
  */
 
 import 'dotenv/config';
@@ -34,9 +35,11 @@ async function main() {
     // polymarketCredentials would be stored in your DB after first linkUser call
   };
 
-  // Initialize Polymarket router
+  // Initialize Polymarket router with Dome API key
+  // Orders are placed via Dome server for geo-unrestricted access and observability
   const router = new PolymarketRouter({
     chainId: 137, // Polygon mainnet
+    apiKey: process.env.DOME_API_KEY, // Required for placeOrder
   });
 
   // Step 1: Create a signer from Privy (ONE LINE!)
@@ -67,23 +70,26 @@ async function main() {
   }
 
   // Step 3: Place an order (NO WALLET SIGNATURE POPUP!)
+  // Orders are signed locally then submitted via Dome server
   console.log('\nPlacing order on Polymarket...');
   try {
     const order = await router.placeOrder(
       {
         userId: user.id,
+        // Example: "US recession in 2025?" - Yes token
+        // Find active markets at https://polymarket.com or via CLOB API
         marketId:
-          '60487116984468020978247225474488676749601001829886755968952521846780452448915', // "Fed rate hike in 2025?" market
+          '104173557214744537570424345347209544585775842950109756851652855913015295701992',
         side: 'buy',
-        size: 5,
-        price: 0.99,
+        size: 100, // Number of shares (min $1 order value)
+        price: 0.01, // Price per share (0-1)
         signer,
       },
       credentials
     );
 
     console.log('✅ Order placed successfully!');
-    console.log('Order:', order);
+    console.log('Order:', JSON.stringify(order, null, 2));
   } catch (error: any) {
     if (error.message?.includes('not enough balance')) {
       console.log('⚠️  Wallet needs USDC.e funding on Polygon');
@@ -91,6 +97,9 @@ async function main() {
       console.log(
         '   Token: USDC.e (0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174)'
       );
+    } else if (error.message?.includes('Dome API key')) {
+      console.log('⚠️  Missing Dome API key');
+      console.log('   Set DOME_API_KEY environment variable');
     } else {
       console.error('❌ Error placing order:', error.message);
     }
