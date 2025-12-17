@@ -50,6 +50,7 @@ await router.placeOrder(
     side: 'buy',
     size: 5,
     price: 0.99,
+    orderType: 'GTC', // 'GTC' | 'GTD' | 'FOK' | 'FAK'
     // No signer needed - just pass Privy wallet info!
     privyWalletId: user.privyWalletId,
     walletAddress: user.walletAddress,
@@ -65,6 +66,17 @@ await router.placeOrder(
 3. ✅ **Persistent credentials** - Store in your database, reuse forever
 4. ✅ **Direct CLOB access** - Places orders directly on Polymarket (no Dome backend needed)
 5. ✅ **Same wallet** - EOA wallet is both signer and funder
+
+### Order Types
+
+| Type  | Description                                             |
+| ----- | ------------------------------------------------------- |
+| `GTC` | Good Till Cancel - stays on book until filled (default) |
+| `GTD` | Good Till Date - expires at specified time              |
+| `FOK` | Fill Or Kill - fill completely immediately or cancel    |
+| `FAK` | Fill And Kill - fill as much as possible, cancel rest   |
+
+Use `FOK` or `FAK` for copy trading where instant fill confirmation is needed.
 
 ### Running the Example
 

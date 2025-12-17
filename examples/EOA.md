@@ -215,6 +215,36 @@ external-wallet-nextjs/
 | Deployment     | None needed               | Safe must be deployed   |
 | Gas            | Can be sponsored          | User pays (or relayer)  |
 
+## Order Types
+
+When placing orders, you can specify the `orderType` parameter:
+
+| Type  | Name             | Behavior                                                |
+| ----- | ---------------- | ------------------------------------------------------- |
+| `GTC` | Good Till Cancel | Order stays on book until filled or cancelled (default) |
+| `GTD` | Good Till Date   | Order expires at specified time                         |
+| `FOK` | Fill Or Kill     | Must fill completely immediately or cancel entirely     |
+| `FAK` | Fill And Kill    | Fills as much as possible immediately, cancels the rest |
+
+```typescript
+await router.placeOrder(
+  {
+    userId: user.id,
+    marketId: '...',
+    side: 'buy',
+    size: 100,
+    price: 0.5,
+    orderType: 'FOK', // For copy trading - instant fill or cancel
+    signer,
+    walletType: 'safe',
+    funderAddress: safeAddress,
+  },
+  credentials
+);
+```
+
+**Copy Trading Tip**: Use `FOK` or `FAK` for instant confirmation of whether an order was filled.
+
 ## Next Steps
 
 After initializing a trading session:
