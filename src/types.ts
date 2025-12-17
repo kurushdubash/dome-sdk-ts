@@ -541,6 +541,18 @@ export interface PlaceOrderParams {
   // === Market Options ===
   /** Whether the market uses neg risk (default: false) */
   negRisk?: boolean;
+
+  // === Order Options ===
+  /**
+   * Order type (default: 'GTC')
+   * - 'GTC': Good Till Cancelled - order stays on book until filled or cancelled
+   * - 'GTD': Good Till Date - order expires at specified time
+   * - 'FOK': Fill Or Kill - order must fill completely immediately or cancel entirely
+   * - 'FAK': Fill And Kill - fills as much as possible immediately, cancels rest
+   *
+   * For copy trading, use 'FOK' or 'FAK' for instant confirmation of fill status.
+   */
+  orderType?: PolymarketOrderType;
 }
 
 /**

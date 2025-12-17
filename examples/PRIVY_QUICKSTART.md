@@ -74,7 +74,14 @@ async function linkUser(user) {
 }
 
 // Place orders (unlimited, no signatures needed!)
-async function placeOrder(user, marketId, side, size, price) {
+async function placeOrder(
+  user,
+  marketId,
+  side,
+  size,
+  price,
+  orderType = 'GTC'
+) {
   const credentials = await db.users.get(user.id).polymarketCredentials;
 
   return router.placeOrder(
@@ -84,6 +91,7 @@ async function placeOrder(user, marketId, side, size, price) {
       side,
       size,
       price,
+      orderType, // 'GTC' | 'GTD' | 'FOK' | 'FAK'
       privyWalletId: user.privyWalletId,
       walletAddress: user.walletAddress,
     },
@@ -97,6 +105,41 @@ async function placeOrder(user, marketId, side, size, price) {
 1. **Link user once** - Sets allowances + creates Polymarket API credentials
 2. **Trade forever** - No more signatures needed, just pass wallet info
 3. **Builder routing** - All orders automatically use Dome's builder server
+
+## Order Types
+
+The `orderType` parameter controls how orders are executed:
+
+| Type  | Name             | Behavior                                                |
+| ----- | ---------------- | ------------------------------------------------------- |
+| `GTC` | Good Till Cancel | Order stays on book until filled or cancelled (default) |
+| `GTD` | Good Till Date   | Order expires at specified time                         |
+| `FOK` | Fill Or Kill     | Must fill completely immediately or cancel entirely     |
+| `FAK` | Fill And Kill    | Fills as much as possible immediately, cancels the rest |
+
+### Copy Trading
+
+For copy trading use cases, use `FOK` or `FAK` for instant confirmation of fill status:
+
+```typescript
+// FOK - All or nothing (good for exact position mirroring)
+await router.placeOrder(
+  {
+    ...orderParams,
+    orderType: 'FOK',
+  },
+  credentials
+);
+
+// FAK - Best effort fill (good for partial fills)
+await router.placeOrder(
+  {
+    ...orderParams,
+    orderType: 'FAK',
+  },
+  credentials
+);
+```
 
 ## Dome Builder Server (Always Enabled)
 
