@@ -39,7 +39,7 @@ async function main() {
   // Orders are placed via Dome server for geo-unrestricted access and observability
   const router = new PolymarketRouter({
     chainId: 137, // Polygon mainnet
-    apiKey: process.env.DOME_API_KEY, // Required for placeOrder
+    apiKey: process.env.DOME_API_KEY || 'dome_test', // Required for placeOrder
   });
 
   // Step 1: Create a signer from Privy (ONE LINE!)
@@ -69,11 +69,12 @@ async function main() {
     // await db.users.update(user.id, { polymarketCredentials: credentials });
   }
 
-  // Step 3: Place an order (NO WALLET SIGNATURE POPUP!)
+  // Step 3: Place a GTC order (Good Till Cancelled - stays on book)
   // Orders are signed locally then submitted via Dome server
-  console.log('\nPlacing order on Polymarket...');
+  console.log('\n--- GTC Order (Good Till Cancelled) ---');
+  console.log('Placing GTC order on Polymarket...');
   try {
-    const order = await router.placeOrder(
+    const gtcOrder = await router.placeOrder(
       {
         userId: user.id,
         // Example: "US recession in 2025?" - Yes token
@@ -83,26 +84,75 @@ async function main() {
         side: 'buy',
         size: 100, // Number of shares (min $1 order value)
         price: 0.01, // Price per share (0-1)
+        orderType: 'GTC', // Good Till Cancelled (default)
         signer,
       },
       credentials
     );
 
-    console.log('✅ Order placed successfully!');
-    console.log('Order:', JSON.stringify(order, null, 2));
+    console.log('✅ GTC Order placed successfully!');
+    console.log('Order:', JSON.stringify(gtcOrder, null, 2));
   } catch (error: any) {
-    if (error.message?.includes('not enough balance')) {
-      console.log('⚠️  Wallet needs USDC.e funding on Polygon');
-      console.log(`   Wallet address: ${user.walletAddress}`);
-      console.log(
-        '   Token: USDC.e (0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174)'
-      );
-    } else if (error.message?.includes('Dome API key')) {
-      console.log('⚠️  Missing Dome API key');
-      console.log('   Set DOME_API_KEY environment variable');
+    handleOrderError(error, user.walletAddress);
+  }
+
+  // Step 4: Place a FOK order (Fill Or Kill - must fill immediately or cancel)
+  // Useful for copy trading where you need instant confirmation
+  // Note: FOK orders need liquidity at the price to fill - using higher price to match asks
+  console.log('\n--- FOK Order (Fill Or Kill) ---');
+  console.log('Placing FOK order on Polymarket...');
+  try {
+    const fokOrder = await router.placeOrder(
+      {
+        userId: user.id,
+        marketId:
+          '104173557214744537570424345347209544585775842950109756851652855913015295701992',
+        side: 'buy',
+        size: 100,
+        price: 0.02, // Higher price to match existing asks for FOK
+        orderType: 'FOK', // Fill Or Kill - must fill completely immediately or cancel
+        signer,
+      },
+      credentials
+    );
+
+    console.log('✅ FOK Order placed successfully!');
+    console.log('Order:', JSON.stringify(fokOrder, null, 2));
+
+    // FOK orders give instant confirmation
+    if (fokOrder.status === 'matched') {
+      console.log('📊 FOK order was FILLED immediately');
     } else {
-      console.error('❌ Error placing order:', error.message);
+      console.log('📊 FOK order status:', fokOrder.status);
     }
+  } catch (error: any) {
+    handleOrderError(error, user.walletAddress);
+  }
+}
+
+function handleOrderError(error: any, walletAddress: string) {
+  if (error.message?.includes('not enough balance')) {
+    console.log('⚠️  Wallet needs USDC.e funding on Polygon');
+    console.log(`   Wallet address: ${walletAddress}`);
+    console.log(
+      '   Token: USDC.e (0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174)'
+    );
+  } else if (error.message?.includes('Dome API key')) {
+    console.log('⚠️  Missing Dome API key');
+    console.log('   Set DOME_API_KEY environment variable');
+  } else if (error.message?.includes('400')) {
+    console.log('❌ Order rejected (HTTP 400)');
+    console.log(
+      '   This usually means insufficient USDC balance or invalid order params'
+    );
+    console.log(`   Wallet address: ${walletAddress}`);
+    console.log(
+      `   Check wallet USDC balance at: https://polygonscan.com/address/${
+        walletAddress
+      }`
+    );
+  } else {
+    console.error('❌ Error placing order:', error.message);
   }
 }
 
