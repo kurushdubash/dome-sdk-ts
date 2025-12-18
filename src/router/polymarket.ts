@@ -620,8 +620,10 @@ export class PolymarketRouter {
     const serverResponse: ServerPlaceOrderResponse = await response.json();
 
     if (serverResponse.error) {
+      const reason =
+        serverResponse.error.data?.reason || serverResponse.error.message;
       throw new Error(
-        `Order placement failed: ${serverResponse.error.message} (code: ${serverResponse.error.code})`
+        `Order placement failed: ${reason} (code: ${serverResponse.error.code})`
       );
     }
 

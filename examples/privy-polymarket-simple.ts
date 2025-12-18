@@ -98,7 +98,7 @@ async function main() {
 
   // Step 4: Place a FOK order (Fill Or Kill - must fill immediately or cancel)
   // Useful for copy trading where you need instant confirmation
-  // Note: FOK orders need liquidity at the price to fill - using higher price to match asks
+  // Note: FOK/FAK orders require minimum $1 order value AND liquidity at the price
   console.log('\n--- FOK Order (Fill Or Kill) ---');
   console.log('Placing FOK order on Polymarket...');
   try {
@@ -108,8 +108,8 @@ async function main() {
         marketId:
           '104173557214744537570424345347209544585775842950109756851652855913015295701992',
         side: 'buy',
-        size: 100,
-        price: 0.02, // Higher price to match existing asks for FOK
+        size: 100, // 100 shares at $0.01 = $1 minimum
+        price: 0.01,
         orderType: 'FOK', // Fill Or Kill - must fill completely immediately or cancel
         signer,
       },
@@ -131,28 +131,32 @@ async function main() {
 }
 
 function handleOrderError(error: any, walletAddress: string) {
-  if (error.message?.includes('not enough balance')) {
+  const msg = error.message || '';
+  if (
+    msg.includes('not enough balance') ||
+    msg.includes('balance / allowance')
+  ) {
     console.log('⚠️  Wallet needs USDC.e funding on Polygon');
     console.log(`   Wallet address: ${walletAddress}`);
     console.log(
       '   Token: USDC.e (0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174)'
     );
-  } else if (error.message?.includes('Dome API key')) {
+    console.log(
+      `   Check balance: https://polygonscan.com/address/${walletAddress}`
+    );
+  } else if (msg.includes('Dome API key')) {
     console.log('⚠️  Missing Dome API key');
     console.log('   Set DOME_API_KEY environment variable');
-  } else if (error.message?.includes('400')) {
+  } else if (msg.includes('min size')) {
+    console.log('❌ Order size too small');
+    console.log('   Minimum order value is $1');
+    console.log('   Increase size or price to meet minimum');
+  } else if (msg.includes('400')) {
     console.log('❌ Order rejected (HTTP 400)');
-    console.log(
-      '   This usually means insufficient USDC balance or invalid order params'
-    );
+    console.log(`   Error: ${msg}`);
     console.log(`   Wallet address: ${walletAddress}`);
-    console.log(
-      `   Check wallet USDC balance at: https://polygonscan.com/address/${
-        walletAddress
-      }`
-    );
   } else {
-    console.error('❌ Error placing order:', error.message);
+    console.error('❌ Error placing order:', msg);
   }
 }
 
