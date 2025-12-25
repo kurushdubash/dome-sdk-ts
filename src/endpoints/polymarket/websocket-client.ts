@@ -300,6 +300,9 @@ export class PolymarketWebSocketClient extends EventEmitter {
       throw new Error('WebSocket is not connected');
     }
 
+    // Store reference to ws after null check
+    const ws = this.ws;
+
     // Verify subscription exists
     if (!this.subscriptions.has(subscriptionId)) {
       throw new Error(`Subscription ${subscriptionId} not found`);
@@ -342,7 +345,7 @@ export class PolymarketWebSocketClient extends EventEmitter {
       this.once('message', messageHandler);
 
       try {
-        this.ws.send(JSON.stringify(updateMessage));
+        ws.send(JSON.stringify(updateMessage));
       } catch (error) {
         clearTimeout(timeout);
         this.removeListener('message', messageHandler);
