@@ -1,4 +1,4 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 
 import { DomeClient } from '../index.js';
 
@@ -36,11 +36,23 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
   // Helper function to run a test
   async function runTest(
     testName: string,
-    testFn: () => Promise<any>
+    testFn: () => Promise<any>,
+    validateResponse?: (result: any) => void
   ): Promise<void> {
     try {
       console.log(`📋 Testing: ${testName}`);
       const result = await testFn();
+
+      // Validate that response has values
+      if (validateResponse) {
+        validateResponse(result);
+      } else {
+        // Default validation: check that result is not null/undefined
+        if (result === null || result === undefined) {
+          throw new Error('Response is null or undefined');
+        }
+      }
+
       console.log(`✅ PASSED: ${testName}`);
       console.log(
         `   Response: ${JSON.stringify(result, null, 2).substring(0, 200)}...\n`
@@ -56,64 +68,151 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     }
   }
 
-  // Test data - using real-looking IDs that might exist
+  // Test data - using provided base values
   const testTokenId =
-    '58519484510520807142687824915233722607092670035910114837910294451210534222702';
+    '56369772478534954338683665819559528414197495274302917800610633957542171787417';
   const testConditionId =
     '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57';
   const testWalletAddress = '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b';
   const testMarketSlug = 'bitcoin-up-or-down-july-25-8pm-et';
+  const testStartTime = 1760470000000; // milliseconds
+  const testEndTime = 1760480000000; // milliseconds
+  const testStartTimeSeconds = Math.floor(testStartTime / 1000);
+  const testEndTimeSeconds = Math.floor(testEndTime / 1000);
+
+  // Kalshi test data
+  const testMarketTicker = 'KXMAYORNYCPARTY-25-D';
+  const testEventTicker = 'KXMAYORNYCPARTY-25';
+  const testKalshiTradesTicker = 'KXNFLGAME-25NOV09PITLAC-PIT';
+
+  // Matching markets test data
+  const testMatchingMarketSlug = 'nfl-ari-den-2025-08-16';
+  const testMatchingEventTicker = 'KXNFLGAME-25AUG16ARIDEN';
+
+  // Crypto prices test data
+  const testBinanceCurrency = 'btcusdt';
+  const testChainlinkCurrency = 'eth/usd';
+  const testCryptoStartTime = 1766130000000;
+  const testCryptoEndTime = 1766131000000;
 
   // ===== POLYMARKET MARKET ENDPOINTS =====
   console.log('📊 Testing Polymarket Market Endpoints...\n');
 
-  await runTest('Polymarket: Get Market Price (current)', () =>
-    dome.polymarket.markets.getMarketPrice({
-      token_id:
-        '24891147099018724959141647991382271578149113344000019968758330059825991230807',
-      at_time: 1753533049,
-    })
+  await runTest(
+    'Polymarket: Get Market Price (current)',
+    () =>
+      dome.polymarket.markets.getMarketPrice({
+        token_id: testTokenId,
+      }),
+    result => {
+      if (typeof result.price !== 'number') {
+        throw new Error('Response must have price as number');
+      }
+      if (typeof result.at_time !== 'number') {
+        throw new Error('Response must have at_time as number');
+      }
+      if (result.price < 0 || result.price > 1) {
+        throw new Error('Price must be between 0 and 1');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Market Price (historical)', () =>
-    dome.polymarket.markets.getMarketPrice({
-      token_id: testTokenId,
-      at_time: Math.floor(Date.now() / 1000) - 86400, // 24 hours ago
-    })
+  await runTest(
+    'Polymarket: Get Market Price (historical)',
+    () =>
+      dome.polymarket.markets.getMarketPrice({
+        token_id: testTokenId,
+        at_time: testStartTimeSeconds,
+      }),
+    result => {
+      if (typeof result.price !== 'number') {
+        throw new Error('Response must have price as number');
+      }
+      if (typeof result.at_time !== 'number') {
+        throw new Error('Response must have at_time as number');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Candlesticks (1 hour intervals)', () =>
-    dome.polymarket.markets.getCandlesticks({
-      condition_id: testConditionId,
-      start_time: Math.floor(Date.now() / 1000) - 86400 * 7, // 7 days ago
-      end_time: Math.floor(Date.now() / 1000), // now
-      interval: 60, // 1 hour
-    })
+  await runTest(
+    'Polymarket: Get Candlesticks (1 hour intervals)',
+    () =>
+      dome.polymarket.markets.getCandlesticks({
+        condition_id: testConditionId,
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+        interval: 60, // 1 hour
+      }),
+    result => {
+      if (!result.candlesticks || !Array.isArray(result.candlesticks)) {
+        throw new Error('Response must have candlesticks array');
+      }
+      // Note: candlesticks array may be empty if no data exists for the time range
+    }
   );
 
-  await runTest('Polymarket: Get Candlesticks (1 day intervals)', () =>
-    dome.polymarket.markets.getCandlesticks({
-      condition_id: testConditionId,
-      start_time: Math.floor(Date.now() / 1000) - 86400 * 30, // 30 days ago
-      end_time: Math.floor(Date.now() / 1000), // now
-      interval: 1440, // 1 day
-    })
+  await runTest(
+    'Polymarket: Get Candlesticks (1 day intervals)',
+    () =>
+      dome.polymarket.markets.getCandlesticks({
+        condition_id: testConditionId,
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+        interval: 1440, // 1 day
+      }),
+    result => {
+      if (!result.candlesticks || !Array.isArray(result.candlesticks)) {
+        throw new Error('Response must have candlesticks array');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Orderbooks', () =>
-    dome.polymarket.markets.getOrderbooks({
-      token_id: testTokenId,
-      start_time: Date.now() - 86400000, // 24 hours ago in milliseconds
-      end_time: Date.now(), // now in milliseconds
-      limit: 10,
-    })
+  await runTest(
+    'Polymarket: Get Orderbooks',
+    () =>
+      dome.polymarket.markets.getOrderbooks({
+        token_id: testTokenId,
+        start_time: testStartTime,
+        end_time: testEndTime,
+        limit: 10,
+      }),
+    result => {
+      if (!result.snapshots || !Array.isArray(result.snapshots)) {
+        throw new Error('Response must have snapshots array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      if (result.snapshots.length > 0) {
+        const snapshot = result.snapshots[0];
+        if (!snapshot.asks || !Array.isArray(snapshot.asks)) {
+          throw new Error('Snapshot must have asks array');
+        }
+        if (!snapshot.bids || !Array.isArray(snapshot.bids)) {
+          throw new Error('Snapshot must have bids array');
+        }
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Markets (by slug)', () =>
-    dome.polymarket.markets.getMarkets({
-      market_slug: [testMarketSlug],
-      limit: 10,
-    })
+  await runTest(
+    'Polymarket: Get Markets (by slug)',
+    () =>
+      dome.polymarket.markets.getMarkets({
+        market_slug: [testMarketSlug],
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (result.markets.length === 0) {
+        throw new Error('Markets array should not be empty');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
   // Comprehensive validation test for markets endpoint
@@ -123,7 +222,10 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
   // And ensures all fields in the response match the expected structure
   await runTest('Polymarket: Get Markets - Full Field Validation', async () => {
     const response = await dome.polymarket.markets.getMarkets({
-      market_slug: ['bitcoin-up-or-down-july-25-8pm-et'],
+      market_slug: [
+        'bitcoin-up-or-down-july-25-8pm-et',
+        'nfl-ari-den-2025-08-16',
+      ],
       limit: 10,
     });
 
@@ -182,6 +284,13 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
       if (market.close_time !== null && typeof market.close_time !== 'number') {
         throw new Error('market.close_time must be a number or null');
       }
+      if (
+        market.market_slug === 'nfl-ari-den-2025-08-16' &&
+        market.game_start_time !== null &&
+        typeof market.game_start_time !== 'string'
+      ) {
+        throw new Error('market.game_start_time must be a string or null');
+      }
 
       // Tags array
       if (!Array.isArray(market.tags)) {
@@ -236,27 +345,13 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
         throw new Error('market.side_b.label must be a non-empty string');
       }
 
-      // Winning side (nullable object)
-      if (market.winning_side !== null) {
-        if (!market.winning_side || typeof market.winning_side !== 'object') {
-          throw new Error('market.winning_side must be an object or null');
-        }
-        if (
-          typeof market.winning_side.id !== 'string' ||
-          !market.winning_side.id
-        ) {
-          throw new Error(
-            'market.winning_side.id must be a non-empty string when winning_side is not null'
-          );
-        }
-        if (
-          typeof market.winning_side.label !== 'string' ||
-          !market.winning_side.label
-        ) {
-          throw new Error(
-            'market.winning_side.label must be a non-empty string when winning_side is not null'
-          );
-        }
+      // Winning side (nullable string)
+      if (
+        market.status === 'closed' &&
+        market.winning_side !== null &&
+        typeof market.winning_side === 'string'
+      ) {
+        throw new Error('market.winning_side must be an object or null');
       }
 
       // Status enum
@@ -288,78 +383,224 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
   // ===== POLYMARKET WALLET ENDPOINTS =====
   console.log('💰 Testing Polymarket Wallet Endpoints...\n');
 
-  await runTest('Polymarket: Get Wallet PnL (daily granularity)', () =>
-    dome.polymarket.wallet.getWalletPnL({
-      wallet_address: testWalletAddress,
-      granularity: 'day',
-      start_time: Math.floor(Date.now() / 1000) - 86400 * 30, // 30 days ago
-      end_time: Math.floor(Date.now() / 1000), // now
-    })
+  await runTest(
+    'Polymarket: Get Wallet',
+    () =>
+      dome.polymarket.wallet.getWallet({
+        eoa: testWalletAddress,
+        with_metrics: true,
+      }),
+    result => {
+      if (typeof result.eoa !== 'string' || !result.eoa) {
+        throw new Error('Response must have eoa as non-empty string');
+      }
+      if (typeof result.proxy !== 'string' || !result.proxy) {
+        throw new Error('Response must have proxy as non-empty string');
+      }
+      if (typeof result.wallet_type !== 'string' || !result.wallet_type) {
+        throw new Error('Response must have wallet_type as non-empty string');
+      }
+      if (result.wallet_metrics) {
+        if (typeof result.wallet_metrics.total_volume !== 'number') {
+          throw new Error('wallet_metrics.total_volume must be a number');
+        }
+        if (typeof result.wallet_metrics.total_trades !== 'number') {
+          throw new Error('wallet_metrics.total_trades must be a number');
+        }
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Wallet PnL (all time)', () =>
-    dome.polymarket.wallet.getWalletPnL({
-      wallet_address: testWalletAddress,
-      granularity: 'all',
-    })
+  await runTest(
+    'Polymarket: Get Wallet (without metrics)',
+    () =>
+      dome.polymarket.wallet.getWallet({
+        eoa: testWalletAddress,
+      }),
+    result => {
+      if (typeof result.eoa !== 'string' || !result.eoa) {
+        throw new Error('Response must have eoa as non-empty string');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Wallet PnL (daily granularity)',
+    () =>
+      dome.polymarket.wallet.getWalletPnL({
+        wallet_address: testWalletAddress,
+        granularity: 'day',
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+      }),
+    result => {
+      if (typeof result.granularity !== 'string') {
+        throw new Error('Response must have granularity as string');
+      }
+      if (!result.pnl_over_time || !Array.isArray(result.pnl_over_time)) {
+        throw new Error('Response must have pnl_over_time array');
+      }
+      if (typeof result.wallet_addr !== 'string') {
+        throw new Error('Response must have wallet_address as string');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Wallet PnL (all time)',
+    () =>
+      dome.polymarket.wallet.getWalletPnL({
+        wallet_address: testWalletAddress,
+        granularity: 'all',
+      }),
+    result => {
+      if (typeof result.granularity !== 'string') {
+        throw new Error('Response must have granularity as string');
+      }
+      if (!result.pnl_over_time || !Array.isArray(result.pnl_over_time)) {
+        throw new Error('Response must have pnl_over_time array');
+      }
+    }
   );
 
   // ===== POLYMARKET ORDERS ENDPOINTS =====
   console.log('📋 Testing Polymarket Orders Endpoints...\n');
 
-  await runTest('Polymarket: Get Orders (by market slug)', () =>
-    dome.polymarket.orders.getOrders({
-      market_slug: testMarketSlug,
-      limit: 10,
-    })
+  await runTest(
+    'Polymarket: Get Orders (by market slug)',
+    () =>
+      dome.polymarket.orders.getOrders({
+        market_slug: testMarketSlug,
+        limit: 10,
+      }),
+    result => {
+      if (!result.orders || !Array.isArray(result.orders)) {
+        throw new Error('Response must have orders array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      if (result.orders.length > 0) {
+        const order = result.orders[0];
+        if (!order.token_id) {
+          throw new Error('Order must have token_id');
+        }
+        if (!order.token_label) {
+          throw new Error('Order must have token_label');
+        }
+        if (!order.taker) {
+          throw new Error('Order must have taker');
+        }
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Orders (by token ID)', () =>
-    dome.polymarket.orders.getOrders({
-      token_id: testTokenId,
-      limit: 5,
-    })
+  await runTest(
+    'Polymarket: Get Orders (by token ID)',
+    () =>
+      dome.polymarket.orders.getOrders({
+        token_id: testTokenId,
+        limit: 5,
+      }),
+    result => {
+      if (!result.orders || !Array.isArray(result.orders)) {
+        throw new Error('Response must have orders array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Orders (with time range)', () =>
-    dome.polymarket.orders.getOrders({
-      market_slug: testMarketSlug,
-      start_time: Math.floor(Date.now() / 1000) - 86400 * 7, // 7 days ago
-      end_time: Math.floor(Date.now() / 1000), // now
-      limit: 20,
-      offset: 0,
-    })
+  await runTest(
+    'Polymarket: Get Orders (with time range)',
+    () =>
+      dome.polymarket.orders.getOrders({
+        market_slug: testMarketSlug,
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+        limit: 20,
+        offset: 0,
+      }),
+    result => {
+      if (!result.orders || !Array.isArray(result.orders)) {
+        throw new Error('Response must have orders array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Orders (by user)', () =>
-    dome.polymarket.orders.getOrders({
-      user: testWalletAddress,
-      limit: 10,
-    })
+  await runTest(
+    'Polymarket: Get Orders (by user)',
+    () =>
+      dome.polymarket.orders.getOrders({
+        user: testWalletAddress,
+        limit: 10,
+      }),
+    result => {
+      if (!result.orders || !Array.isArray(result.orders)) {
+        throw new Error('Response must have orders array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Activity (by user)', () =>
-    dome.polymarket.orders.getActivity({
-      user: testWalletAddress,
-      limit: 10,
-    })
+  await runTest(
+    'Polymarket: Get Activity (by user)',
+    () =>
+      dome.polymarket.orders.getActivity({
+        user: testWalletAddress,
+        limit: 10,
+      }),
+    result => {
+      if (!result.activities || !Array.isArray(result.activities)) {
+        throw new Error('Response must have activities array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Activity (with time range)', () =>
-    dome.polymarket.orders.getActivity({
-      user: testWalletAddress,
-      start_time: Math.floor(Date.now() / 1000) - 86400 * 7, // 7 days ago
-      end_time: Math.floor(Date.now() / 1000), // now
-      limit: 20,
-    })
+  await runTest(
+    'Polymarket: Get Activity (with time range)',
+    () =>
+      dome.polymarket.orders.getActivity({
+        user: testWalletAddress,
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+        limit: 20,
+      }),
+    result => {
+      if (!result.activities || !Array.isArray(result.activities)) {
+        throw new Error('Response must have activities array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Polymarket: Get Activity (by market slug)', () =>
-    dome.polymarket.orders.getActivity({
-      user: testWalletAddress,
-      market_slug: testMarketSlug,
-      limit: 10,
-    })
+  await runTest(
+    'Polymarket: Get Activity (by market slug)',
+    () =>
+      dome.polymarket.orders.getActivity({
+        user: testWalletAddress,
+        market_slug: testMarketSlug,
+        limit: 10,
+      }),
+    result => {
+      if (!result.activities || !Array.isArray(result.activities)) {
+        throw new Error('Response must have activities array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
   // ===== POLYMARKET WEBSOCKET ENDPOINTS =====
@@ -450,48 +691,186 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
   // ===== KALSHI ENDPOINTS =====
   console.log('🏈 Testing Kalshi Endpoints...\n');
 
-  await runTest('Kalshi: Get Markets (no filters)', () =>
-    dome.kalshi.markets.getMarkets({
-      limit: 10,
-    })
+  await runTest(
+    'Kalshi: Get Markets (no filters)',
+    () =>
+      dome.kalshi.markets.getMarkets({
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Kalshi: Get Markets (by status)', () =>
-    dome.kalshi.markets.getMarkets({
-      status: 'open',
-      limit: 20,
-    })
+  await runTest(
+    'Kalshi: Get Markets (by status)',
+    () =>
+      dome.kalshi.markets.getMarkets({
+        status: 'open',
+        limit: 20,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Kalshi: Get Markets (by event ticker)', () =>
-    dome.kalshi.markets.getMarkets({
-      event_ticker: ['KXNFLGAME-25AUG16ARIDEN'],
-      limit: 10,
-    })
+  await runTest(
+    'Kalshi: Get Markets (by event ticker)',
+    () =>
+      dome.kalshi.markets.getMarkets({
+        event_ticker: [testEventTicker],
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
   );
 
-  await runTest('Kalshi: Get Orderbooks', () =>
-    dome.kalshi.markets.getOrderbooks({
-      ticker: 'KXNFLGAME-25AUG16ARIDEN-ARI',
-      start_time: Date.now() - 86400000, // 24 hours ago in milliseconds
-      end_time: Date.now(), // now in milliseconds
-      limit: 10,
-    })
+  await runTest(
+    'Kalshi: Get Markets (by market ticker)',
+    () =>
+      dome.kalshi.markets.getMarkets({
+        market_ticker: [testMarketTicker],
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Trades',
+    () =>
+      dome.kalshi.markets.getTrades({
+        ticker: testKalshiTradesTicker,
+        limit: 10,
+      }),
+    result => {
+      if (!result.trades || !Array.isArray(result.trades)) {
+        throw new Error('Response must have trades array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      if (result.trades.length > 0) {
+        const trade = result.trades[0];
+        if (!trade.trade_id) {
+          throw new Error('Trade must have trade_id');
+        }
+        if (typeof trade.count !== 'number') {
+          throw new Error('Trade must have count as number');
+        }
+        if (typeof trade.yes_price !== 'number') {
+          throw new Error('Trade must have yes_price as number');
+        }
+        if (typeof trade.no_price !== 'number') {
+          throw new Error('Trade must have no_price as number');
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Trades (with time range)',
+    () =>
+      dome.kalshi.markets.getTrades({
+        ticker: testKalshiTradesTicker,
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+        limit: 10,
+      }),
+    result => {
+      if (!result.trades || !Array.isArray(result.trades)) {
+        throw new Error('Response must have trades array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Orderbooks',
+    () =>
+      dome.kalshi.markets.getOrderbooks({
+        ticker: testMarketTicker,
+        start_time: testStartTime,
+        end_time: testEndTime,
+        limit: 10,
+      }),
+    result => {
+      if (!result.snapshots || !Array.isArray(result.snapshots)) {
+        throw new Error('Response must have snapshots array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      if (result.snapshots.length > 0) {
+        const snapshot = result.snapshots[0];
+        if (!snapshot.orderbook) {
+          throw new Error('Snapshot must have orderbook object');
+        }
+        if (!Array.isArray(snapshot.orderbook.yes)) {
+          throw new Error('Orderbook must have yes array');
+        }
+        if (!Array.isArray(snapshot.orderbook.no)) {
+          throw new Error('Orderbook must have no array');
+        }
+      }
+    }
   );
 
   // ===== MATCHING MARKETS ENDPOINTS =====
   console.log('🔗 Testing Matching Markets Endpoints...\n');
 
-  await runTest('Matching Markets: Get by Polymarket slug', () =>
-    dome.matchingMarkets.getMatchingMarkets({
-      polymarket_market_slug: ['nfl-ari-den-2025-08-16'],
-    })
+  await runTest(
+    'Matching Markets: Get by Polymarket slug',
+    () =>
+      dome.matchingMarkets.getMatchingMarkets({
+        polymarket_market_slug: [testMatchingMarketSlug],
+      }),
+    result => {
+      if (!result.markets || typeof result.markets !== 'object') {
+        throw new Error('Response must have markets object');
+      }
+      const marketKeys = Object.keys(result.markets);
+      if (marketKeys.length === 0) {
+        throw new Error('Markets object should not be empty');
+      }
+    }
   );
 
-  await runTest('Matching Markets: Get by Kalshi ticker', () =>
-    dome.matchingMarkets.getMatchingMarkets({
-      kalshi_event_ticker: ['KXNFLGAME-25AUG16ARIDEN'],
-    })
+  await runTest(
+    'Matching Markets: Get by Kalshi ticker',
+    () =>
+      dome.matchingMarkets.getMatchingMarkets({
+        kalshi_event_ticker: [testMatchingEventTicker],
+      }),
+    result => {
+      if (!result.markets || typeof result.markets !== 'object') {
+        throw new Error('Response must have markets object');
+      }
+    }
   );
 
   await runTest('Matching Markets: Get by sport and date (NFL)', () =>
@@ -522,11 +901,134 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     })
   );
 
-  await runTest('Matching Markets: Get by sport and date (NHL)', () =>
-    dome.matchingMarkets.getMatchingMarketsBySport({
-      sport: 'nhl',
-      date: '2025-10-20',
-    })
+  await runTest(
+    'Matching Markets: Get by sport and date (NHL)',
+    () =>
+      dome.matchingMarkets.getMatchingMarketsBySport({
+        sport: 'nhl',
+        date: '2025-10-20',
+      }),
+    result => {
+      if (!result.markets || typeof result.markets !== 'object') {
+        throw new Error('Response must have markets object');
+      }
+      if (typeof result.sport !== 'string') {
+        throw new Error('Response must have sport as string');
+      }
+      if (typeof result.date !== 'string') {
+        throw new Error('Response must have date as string');
+      }
+    }
+  );
+
+  await runTest(
+    'Matching Markets: Get by sport and date (CBB)',
+    () =>
+      dome.matchingMarkets.getMatchingMarketsBySport({
+        sport: 'cbb',
+        date: '2025-12-20',
+      }),
+    result => {
+      if (!result.markets || typeof result.markets !== 'object') {
+        throw new Error('Response must have markets object');
+      }
+      if (typeof result.sport !== 'string') {
+        throw new Error('Response must have sport as string');
+      }
+    }
+  );
+
+  // ===== CRYPTO PRICES ENDPOINTS =====
+  console.log('💰 Testing Crypto Prices Endpoints...\n');
+
+  await runTest(
+    'Crypto Prices: Get Binance Prices (latest)',
+    () =>
+      dome.cryptoPrices.getBinancePrices({
+        currency: testBinanceCurrency,
+      }),
+    result => {
+      if (!result.prices || !Array.isArray(result.prices)) {
+        throw new Error('Response must have prices array');
+      }
+      if (result.prices.length === 0) {
+        throw new Error('Prices array should not be empty');
+      }
+      const price = result.prices[0];
+      if (typeof price.symbol !== 'string') {
+        throw new Error('Price must have symbol as string');
+      }
+      if (typeof price.value === 'undefined') {
+        throw new Error('Price must have value');
+      }
+      if (typeof price.timestamp !== 'number') {
+        throw new Error('Price must have timestamp as number');
+      }
+    }
+  );
+
+  await runTest(
+    'Crypto Prices: Get Binance Prices (with time range)',
+    () =>
+      dome.cryptoPrices.getBinancePrices({
+        currency: testBinanceCurrency,
+        start_time: testCryptoStartTime,
+        end_time: testCryptoEndTime,
+        limit: 10,
+      }),
+    result => {
+      if (!result.prices || !Array.isArray(result.prices)) {
+        throw new Error('Response must have prices array');
+      }
+      if (typeof result.total !== 'number') {
+        throw new Error('Response must have total as number');
+      }
+    }
+  );
+
+  await runTest(
+    'Crypto Prices: Get Chainlink Prices (latest)',
+    () =>
+      dome.cryptoPrices.getChainlinkPrices({
+        currency: testChainlinkCurrency,
+      }),
+    result => {
+      if (!result.prices || !Array.isArray(result.prices)) {
+        throw new Error('Response must have prices array');
+      }
+      if (result.prices.length === 0) {
+        throw new Error('Prices array should not be empty');
+      }
+      const price = result.prices[0];
+      if (typeof price.symbol !== 'string') {
+        throw new Error('Price must have symbol as string');
+      }
+      if (typeof price.value === 'undefined') {
+        throw new Error('Price must have value');
+      }
+      if (typeof price.timestamp !== 'number') {
+        throw new Error('Price must have timestamp as number');
+      }
+    }
+  );
+
+  await runTest(
+    'Crypto Prices: Get Chainlink Prices (with time range)',
+    () =>
+      dome.cryptoPrices.getChainlinkPrices({
+        currency: testChainlinkCurrency,
+        start_time: testCryptoStartTime,
+        end_time: testCryptoEndTime,
+        limit: 10,
+      }),
+    result => {
+      if (!result.prices || !Array.isArray(result.prices)) {
+        throw new Error('Response must have prices array');
+      }
+      if (typeof result.total !== 'number') {
+        throw new Error('Response must have total as number');
+      }
+    }
   );
 
   // ===== SUMMARY =====

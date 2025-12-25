@@ -38,7 +38,7 @@ export class MatchingMarketsEndpoints extends BaseClient {
 
     return this.makeRequest<MatchingMarketsResponse>(
       'GET',
-      '/matching-markets/sports/',
+      '/matching-markets/sports',
       queryParams,
       options
     );
@@ -63,7 +63,7 @@ export class MatchingMarketsEndpoints extends BaseClient {
 
     return this.makeRequest<MatchingMarketsBySportResponse>(
       'GET',
-      `/matching-markets/sports/${sport}/`,
+      `/matching-markets/sports/${sport}`,
       queryParams,
       options
     );

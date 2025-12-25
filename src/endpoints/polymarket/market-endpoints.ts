@@ -157,6 +157,12 @@ export class MarketEndpoints extends BaseClient {
     if (params.offset !== undefined) {
       queryParams.offset = params.offset;
     }
+    if (params.start_time !== undefined) {
+      queryParams.start_time = params.start_time;
+    }
+    if (params.end_time !== undefined) {
+      queryParams.end_time = params.end_time;
+    }
 
     return this.makeRequest<MarketsResponse>(
       'GET',

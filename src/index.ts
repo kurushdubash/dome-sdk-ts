@@ -3,6 +3,7 @@ import {
   PolymarketClient,
   MatchingMarketsEndpoints,
   KalshiClient,
+  CryptoPricesEndpoints,
 } from './endpoints/index.js';
 
 /**
@@ -28,6 +29,7 @@ export class DomeClient {
   public readonly polymarket: PolymarketClient;
   public readonly matchingMarkets: MatchingMarketsEndpoints;
   public readonly kalshi: KalshiClient;
+  public readonly cryptoPrices: CryptoPricesEndpoints;
 
   /**
    * Creates a new instance of the Dome SDK
@@ -39,6 +41,7 @@ export class DomeClient {
     this.polymarket = new PolymarketClient(config);
     this.matchingMarkets = new MatchingMarketsEndpoints(config);
     this.kalshi = new KalshiClient(config);
+    this.cryptoPrices = new CryptoPricesEndpoints(config);
   }
 }
 

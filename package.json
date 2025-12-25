@@ -1,6 +1,6 @@
 {
   "name": "@dome-api/sdk",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "The Dome SDK - A comprehensive TypeScript SDK for Dome API",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -33,7 +33,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:privy": "tsx test-privy.ts",
-    "integration-test": "ts-node --project tsconfig.integration.json src/tests/integration-test.ts",
+    "integration-test": "tsx src/tests/integration-test.ts",
     "prepublishOnly": "npm run build && npm run lint && npm run test",
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",

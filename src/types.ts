@@ -93,9 +93,43 @@ export interface GetWalletPnLParams {
   end_time?: number;
 }
 
+// ===== Wallet Types =====
+export interface HighestVolumeDay {
+  date: string;
+  volume: number;
+  trades: number;
+}
+
+export interface WalletMetrics {
+  total_volume: number;
+  total_trades: number;
+  total_markets: number;
+  highest_volume_day: HighestVolumeDay;
+  merges: number;
+  splits: number;
+  conversions: number;
+  redemptions: number;
+}
+
+export interface WalletResponse {
+  eoa: string;
+  proxy: string;
+  wallet_type: string;
+  wallet_metrics?: WalletMetrics;
+}
+
+export interface GetWalletParams {
+  eoa?: string;
+  proxy?: string;
+  with_metrics?: boolean;
+  start_time?: number;
+  end_time?: number;
+}
+
 // ===== Orders Types =====
 export interface Order {
   token_id: string;
+  token_label: string;
   side: 'BUY' | 'SELL';
   market_slug: string;
   condition_id: string;
@@ -107,6 +141,7 @@ export interface Order {
   timestamp: number;
   order_hash: string;
   user: string;
+  taker: string;
 }
 
 export interface Pagination {
@@ -157,7 +192,7 @@ export interface GetMatchingMarketsParams {
 }
 
 export interface GetMatchingMarketsBySportParams {
-  sport: 'nfl' | 'mlb' | 'cfb' | 'nba' | 'nhl';
+  sport: 'nfl' | 'mlb' | 'cfb' | 'nba' | 'nhl' | 'cbb';
   date: string; // YYYY-MM-DD format
 }
 
@@ -230,6 +265,7 @@ export interface PolymarketMarketInfo {
   end_time: number;
   completed_time: number | null;
   close_time: number | null;
+  game_start_time: string | null;
   tags: string[];
   volume_1_week: number;
   volume_1_month: number;
@@ -239,7 +275,7 @@ export interface PolymarketMarketInfo {
   image: string;
   side_a: MarketSide;
   side_b: MarketSide;
-  winning_side: MarketSide | null;
+  winning_side: string | null;
   status: 'open' | 'closed';
 }
 
@@ -257,6 +293,8 @@ export interface GetMarketsParams {
   min_volume?: number;
   limit?: number;
   offset?: number;
+  start_time?: number;
+  end_time?: number;
 }
 
 // ===== Activity Types =====
@@ -354,6 +392,61 @@ export interface GetKalshiOrderbooksParams {
   start_time: number; // milliseconds
   end_time: number; // milliseconds
   limit?: number;
+}
+
+// ===== Crypto Prices Types =====
+export interface CryptoPrice {
+  symbol: string;
+  value: string | number;
+  timestamp: number;
+}
+
+export interface CryptoPricesResponse {
+  prices: CryptoPrice[];
+  pagination_key?: string;
+  total: number;
+}
+
+export interface GetBinanceCryptoPricesParams {
+  currency: string;
+  start_time?: number;
+  end_time?: number;
+  limit?: number;
+  pagination_key?: string;
+}
+
+export interface GetChainlinkCryptoPricesParams {
+  currency: string;
+  start_time?: number;
+  end_time?: number;
+  limit?: number;
+  pagination_key?: string;
+}
+
+// ===== Kalshi Trades Types =====
+export interface KalshiTrade {
+  trade_id: string;
+  market_ticker: string;
+  count: number;
+  yes_price: number;
+  no_price: number;
+  yes_price_dollars: number;
+  no_price_dollars: number;
+  taker_side: 'yes' | 'no';
+  created_time: number;
+}
+
+export interface KalshiTradesResponse {
+  trades: KalshiTrade[];
+  pagination: Pagination;
+}
+
+export interface GetKalshiTradesParams {
+  ticker?: string;
+  start_time?: number;
+  end_time?: number;
+  limit?: number;
+  offset?: number;
 }
 
 // ===== HTTP Client Types =====

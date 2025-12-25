@@ -4,6 +4,8 @@ import {
   GetKalshiMarketsParams,
   KalshiOrderbooksResponse,
   GetKalshiOrderbooksParams,
+  KalshiTradesResponse,
+  GetKalshiTradesParams,
   RequestConfig,
 } from '../../types.js';
 
@@ -86,6 +88,48 @@ export class KalshiEndpoints extends BaseClient {
     return this.makeRequest<KalshiOrderbooksResponse>(
       'GET',
       '/kalshi/orderbooks',
+      queryParams,
+      options
+    );
+  }
+
+  /**
+   * Get Kalshi Trades
+   *
+   * Fetches historical trade data for Kalshi markets with optional filtering
+   * by ticker and time range. Returns executed trades with pricing, volume, and
+   * taker side information. All timestamps are in seconds.
+   *
+   * @param params - Parameters for the Kalshi trades request
+   * @param options - Optional request configuration
+   * @returns Promise resolving to Kalshi trades data with pagination
+   */
+  async getTrades(
+    params: GetKalshiTradesParams,
+    options?: RequestConfig
+  ): Promise<KalshiTradesResponse> {
+    const { ticker, start_time, end_time, limit, offset } = params;
+    const queryParams: Record<string, any> = {};
+
+    if (ticker !== undefined) {
+      queryParams.ticker = ticker;
+    }
+    if (start_time !== undefined) {
+      queryParams.start_time = start_time;
+    }
+    if (end_time !== undefined) {
+      queryParams.end_time = end_time;
+    }
+    if (limit !== undefined) {
+      queryParams.limit = limit;
+    }
+    if (offset !== undefined) {
+      queryParams.offset = offset;
+    }
+
+    return this.makeRequest<KalshiTradesResponse>(
+      'GET',
+      '/kalshi/trades',
       queryParams,
       options
     );
