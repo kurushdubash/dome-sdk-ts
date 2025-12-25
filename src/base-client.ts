@@ -22,10 +22,16 @@ function getSDKVersion(): string {
     // Detect module system and get current directory accordingly
     try {
       // ESM environment - use import.meta.url
+      // Use eval to avoid Jest parsing issues with import.meta
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const importMeta =
+        typeof eval !== 'undefined'
+          ? eval('typeof import !== "undefined" ? import.meta : undefined')
+          : undefined;
       // @ts-ignore - import.meta may not exist in CJS builds, but will in ESM
-      if (typeof import.meta !== 'undefined' && import.meta.url) {
+      if (importMeta && importMeta.url) {
         // @ts-ignore - import.meta.url exists in ESM builds
-        const __filename = fileURLToPath(import.meta.url);
+        const __filename = fileURLToPath(importMeta.url);
         currentDir = dirname(__filename);
       } else {
         throw new Error('Not ESM');

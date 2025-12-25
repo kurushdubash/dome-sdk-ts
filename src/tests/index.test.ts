@@ -59,10 +59,11 @@ describe('DomeClient', () => {
         expect.objectContaining({
           method: 'GET',
           url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
-          headers: {
+          headers: expect.objectContaining({
             Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-          },
+            'x-dome-sdk': expect.stringMatching(/^node\/v\d+\.\d+\.\d+$/),
+          }),
           timeout: 30000,
           params: {},
           paramsSerializer: expect.any(Function),
@@ -91,10 +92,11 @@ describe('DomeClient', () => {
         expect.objectContaining({
           method: 'GET',
           url: 'https://api.domeapi.io/v1/polymarket/market-price/1234567890',
-          headers: {
+          headers: expect.objectContaining({
             Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-          },
+            'x-dome-sdk': expect.stringMatching(/^node\/v\d+\.\d+\.\d+$/),
+          }),
           timeout: 30000,
           params: { at_time: 1740000000 },
           paramsSerializer: expect.any(Function),
@@ -175,10 +177,11 @@ describe('DomeClient', () => {
         expect.objectContaining({
           method: 'GET',
           url: 'https://api.domeapi.io/v1/polymarket/candlesticks/0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
-          headers: {
+          headers: expect.objectContaining({
             Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-          },
+            'x-dome-sdk': expect.stringMatching(/^node\/v\d+\.\d+\.\d+$/),
+          }),
           timeout: 30000,
           params: {
             start_time: 1640995200,
@@ -223,10 +226,11 @@ describe('DomeClient', () => {
         expect.objectContaining({
           method: 'GET',
           url: 'https://api.domeapi.io/v1/polymarket/wallet/pnl/0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
-          headers: {
+          headers: expect.objectContaining({
             Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-          },
+            'x-dome-sdk': expect.stringMatching(/^node\/v\d+\.\d+\.\d+$/),
+          }),
           timeout: 30000,
           params: {
             granularity: 'day',
@@ -287,10 +291,11 @@ describe('DomeClient', () => {
         expect.objectContaining({
           method: 'GET',
           url: 'https://api.domeapi.io/v1/polymarket/orders',
-          headers: {
+          headers: expect.objectContaining({
             Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-          },
+            'x-dome-sdk': expect.stringMatching(/^node\/v\d+\.\d+\.\d+$/),
+          }),
           timeout: 30000,
           params: {
             market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
@@ -341,11 +346,12 @@ describe('DomeClient', () => {
       expect(mockedAxios.request).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'GET',
-          url: 'https://api.domeapi.io/v1/matching-markets/sports/',
-          headers: {
+          url: 'https://api.domeapi.io/v1/matching-markets/sports',
+          headers: expect.objectContaining({
             Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-          },
+            'x-dome-sdk': expect.stringMatching(/^node\/v\d+\.\d+\.\d+$/),
+          }),
           timeout: 30000,
           params: {
             polymarket_market_slug: ['nfl-ari-den-2025-08-16'],
@@ -389,11 +395,12 @@ describe('DomeClient', () => {
       expect(mockedAxios.request).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'GET',
-          url: 'https://api.domeapi.io/v1/matching-markets/sports/nfl/',
-          headers: {
+          url: 'https://api.domeapi.io/v1/matching-markets/sports/nfl',
+          headers: expect.objectContaining({
             Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-          },
+            'x-dome-sdk': expect.stringMatching(/^node\/v\d+\.\d+\.\d+$/),
+          }),
           timeout: 30000,
           params: {
             date: '2025-08-16',

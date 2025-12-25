@@ -5,10 +5,27 @@ module.exports = {
   // Only run files ending with .test.ts or .spec.ts (excludes integration-test.ts)
   testMatch: ['**/tests/**/*.test.ts', '**/tests/**/*.spec.ts', '**/*.test.ts', '**/*.spec.ts'],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: {
+        target: 'ES2020',
+        module: 'commonjs',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+      },
+    }],
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        target: 'ES2020',
+        module: 'commonjs',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+      },
+    },
   },
   collectCoverageFrom: [
     'src/**/*.ts',
