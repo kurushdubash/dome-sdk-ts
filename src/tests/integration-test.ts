@@ -1,6 +1,8 @@
 #!/usr/bin/env tsx
 
-import { DomeClient } from '../index.js';
+import { execSync } from 'child_process';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 /**
  * Integration test script for the Dome SDK
@@ -10,8 +12,10 @@ import { DomeClient } from '../index.js';
  *
  * Usage:
  *   yarn integration-test YOUR_API_KEY
+ *   yarn integration-test YOUR_API_KEY --external
  *   or
  *   npx ts-node src/tests/integration-test.ts YOUR_API_KEY
+ *   npx ts-node src/tests/integration-test.ts YOUR_API_KEY --external
  */
 
 interface TestResults {
@@ -20,8 +24,72 @@ interface TestResults {
   errors: string[];
 }
 
-async function runIntegrationTest(apiKey: string): Promise<void> {
-  console.log('🚀 Starting Dome SDK Integration Test...\n');
+/**
+ * Loads the DomeClient from either local source or external npm package
+ */
+async function loadDomeClient(useExternal: boolean): Promise<any> {
+  if (useExternal) {
+    console.log('📦 Using external npm package @dome-api/sdk@0.17.0\n');
+
+    // Check if package is already installed in node_modules
+    const nodeModulesPath = join(
+      process.cwd(),
+      'node_modules',
+      '@dome-api',
+      'sdk'
+    );
+    const isInstalled = existsSync(nodeModulesPath);
+
+    if (!isInstalled) {
+      console.log(
+        '📥 External package not found. Installing @dome-api/sdk@0.17.0...\n'
+      );
+
+      try {
+        // Install the package to the current project's node_modules
+        execSync('npm install @dome-api/sdk@0.17.0 --no-save', {
+          stdio: 'inherit',
+          cwd: process.cwd(),
+        });
+        console.log('✅ Package installed successfully\n');
+      } catch (installError) {
+        console.error('❌ Failed to install external package:', installError);
+        throw new Error(
+          'Could not install @dome-api/sdk@0.17.0. Please install it manually: npm install @dome-api/sdk@0.17.0'
+        );
+      }
+    }
+
+    // Import from the installed package
+    // Using dynamic import - package may not be available at compile time
+    try {
+      // @ts-expect-error - @dome-api/sdk may not be installed at compile time, but will be at runtime
+      const externalSDK = await import('@dome-api/sdk');
+      return externalSDK.DomeClient;
+    } catch (importError) {
+      console.error('❌ Failed to import external package:', importError);
+      throw new Error(
+        'Could not import @dome-api/sdk. Please ensure it is installed: npm install @dome-api/sdk@0.17.0'
+      );
+    }
+  } else {
+    // Use local source
+    const localSDK = await import('../index.js');
+    return localSDK.DomeClient;
+  }
+}
+
+async function runIntegrationTest(
+  apiKey: string,
+  useExternal: boolean
+): Promise<void> {
+  const DomeClient = await loadDomeClient(useExternal);
+
+  if (useExternal) {
+    console.log('✅ External package loaded successfully\n');
+  } else {
+    console.log('🚀 Starting Dome SDK Integration Test (local source)...\n');
+  }
 
   const dome = new DomeClient({
     apiKey,
@@ -297,7 +365,7 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
       if (!Array.isArray(market.tags)) {
         throw new Error('market.tags must be an array');
       }
-      market.tags.forEach((tag, index) => {
+      market.tags.forEach((tag: string, index: number) => {
         if (typeof tag !== 'string') {
           throw new Error(`market.tags[${index}] must be a string`);
         }
@@ -766,7 +834,7 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
     // Verify subscription was updated
     const activeSubs = ws.getActiveSubscriptions();
     const updatedSub = activeSubs.find(
-      s => s.subscription_id === subscription.subscription_id
+      (s: any) => s.subscription_id === subscription.subscription_id
     );
 
     ws.close();
@@ -1188,23 +1256,35 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
 
 // Main execution
 async function main(): Promise<void> {
-  const apiKey = process.argv[2];
+  const args = process.argv.slice(2);
+  const useExternal = args.includes('--external');
+  const apiKey = args.find(arg => arg !== '--external');
 
   if (!apiKey) {
     console.error('❌ Error: API key is required');
     console.log('');
     console.log('Usage:');
     console.log('  yarn integration-test YOUR_API_KEY');
+    console.log('  yarn integration-test YOUR_API_KEY --external');
     console.log('  or');
     console.log('  npx ts-node src/tests/integration-test.ts YOUR_API_KEY');
+    console.log(
+      '  npx ts-node src/tests/integration-test.ts YOUR_API_KEY --external'
+    );
+    console.log('');
+    console.log('Options:');
+    console.log(
+      '  --external    Use the published npm package @dome-api/sdk@0.17.0 instead of local source'
+    );
     console.log('');
     console.log('Example:');
     console.log('  yarn integration-test dome_1234567890abcdef');
+    console.log('  yarn integration-test dome_1234567890abcdef --external');
     process.exit(1);
   }
 
   try {
-    await runIntegrationTest(apiKey);
+    await runIntegrationTest(apiKey, useExternal);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('💥 Fatal error during integration test:', errorMessage);
