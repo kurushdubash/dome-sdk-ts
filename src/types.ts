@@ -170,7 +170,9 @@ export interface GetOrdersParams {
 // ===== Matching Markets Types =====
 export interface KalshiMarket {
   platform: 'KALSHI';
+  /** The Kalshi event ticker. Can contain special characters like ".", "/", ")", "(" */
   event_ticker: string;
+  /** Array of Kalshi market tickers. Can contain special characters like ".", "/", ")", "(" */
   market_tickers: string[];
 }
 
@@ -188,6 +190,7 @@ export interface MatchingMarketsResponse {
 
 export interface GetMatchingMarketsParams {
   polymarket_market_slug?: string[];
+  /** The Kalshi event ticker(s). Can contain special characters like ".", "/", ")", "(" */
   kalshi_event_ticker?: string[];
 }
 
@@ -337,8 +340,11 @@ export interface GetActivityParams {
 
 // ===== Kalshi Markets Types =====
 export interface KalshiMarketInfo {
+  /** The Kalshi event ticker. Can contain special characters like ".", "/", ")", "(" */
   event_ticker: string;
+  /** The Kalshi market ticker. Can contain special characters like ".", "/", ")", "(" */
   market_ticker: string;
+  /** Market question/title. Can contain special characters like ".", "/", ")", "(" */
   title: string;
   start_time: number;
   end_time: number;
@@ -356,7 +362,9 @@ export interface KalshiMarketsResponse {
 }
 
 export interface GetKalshiMarketsParams {
+  /** Filter markets by market ticker(s). Can contain special characters like ".", "/", ")", "(" */
   market_ticker?: string[];
+  /** Filter markets by event ticker(s). Can contain special characters like ".", "/", ")", "(" */
   event_ticker?: string[];
   status?: 'open' | 'closed';
   min_volume?: number;
@@ -373,6 +381,7 @@ export interface KalshiOrderbookSnapshot {
     no_dollars: Array<[string, number]>;
   };
   timestamp: number;
+  /** The Kalshi market ticker. Can contain special characters like ".", "/", ")", "(" */
   ticker: string;
 }
 
@@ -388,6 +397,7 @@ export interface KalshiOrderbooksResponse {
 }
 
 export interface GetKalshiOrderbooksParams {
+  /** The Kalshi market ticker. Can contain special characters like ".", "/", ")", "(" */
   ticker: string;
   start_time: number; // milliseconds
   end_time: number; // milliseconds
@@ -426,6 +436,7 @@ export interface GetChainlinkCryptoPricesParams {
 // ===== Kalshi Trades Types =====
 export interface KalshiTrade {
   trade_id: string;
+  /** The Kalshi market ticker. Can contain special characters like ".", "/", ")", "(" */
   market_ticker: string;
   count: number;
   yes_price: number;
@@ -442,6 +453,7 @@ export interface KalshiTradesResponse {
 }
 
 export interface GetKalshiTradesParams {
+  /** The Kalshi market ticker to filter trades. Can contain special characters like ".", "/", ")", "(" */
   ticker?: string;
   start_time?: number;
   end_time?: number;

@@ -84,6 +84,7 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
   const testMarketTicker = 'KXMAYORNYCPARTY-25-D';
   const testEventTicker = 'KXMAYORNYCPARTY-25';
   const testKalshiTradesTicker = 'KXNFLGAME-25NOV09PITLAC-PIT';
+  const testKalshiMarketWithSpecialChars = '538APPROVE-22AUG03-B38.4';
 
   // Matching markets test data
   const testMatchingMarketSlug = 'nfl-ari-den-2025-08-16';
@@ -754,6 +755,36 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
       }
       if (!result.pagination) {
         throw new Error('Response must have pagination object');
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Markets (by market ticker with special characters)',
+    () =>
+      dome.kalshi.markets.getMarkets({
+        market_ticker: [testKalshiMarketWithSpecialChars],
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      if (result.markets.length > 0) {
+        const market = result.markets[0];
+        // Validate that market ticker with special characters (., /, ), () is handled correctly
+        if (typeof market.market_ticker !== 'string' || !market.market_ticker) {
+          throw new Error('market.market_ticker must be a non-empty string');
+        }
+        // Verify the ticker contains the special characters
+        if (!market.market_ticker.includes('.')) {
+          throw new Error(
+            'Market ticker should support special characters like "."'
+          );
+        }
       }
     }
   );
