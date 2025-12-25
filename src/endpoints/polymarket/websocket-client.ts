@@ -3,6 +3,7 @@ import {
   DomeSDKConfig,
   WebSocketConfig,
   WebSocketSubscribeMessage,
+  WebSocketUpdateMessage,
   WebSocketUnsubscribeMessage,
   WebSocketMessage,
   WebSocketAckMessage,
@@ -195,12 +196,36 @@ export class PolymarketWebSocketClient extends EventEmitter {
   }
 
   /**
-   * Subscribes to order events for specific wallet addresses
+   * Subscribes to order events with various filter options
    *
-   * @param filters - Subscription filters containing wallet addresses
+   * @param filters - Subscription filters. Can filter by:
+   *   - users: Array of wallet addresses
+   *   - condition_ids: Array of condition IDs
+   *   - market_slugs: Array of market slugs
    * @returns Promise resolving to subscription acknowledgment
+   *
+   * @example
+   * ```typescript
+   * // Subscribe to specific users
+   * await ws.subscribe({ users: ['0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d'] });
+   *
+   * // Subscribe to specific condition IDs
+   * await ws.subscribe({ condition_ids: ['0x17815081230e3b9c78b098162c33b1ffa68c4ec29c123d3d14989599e0c2e113'] });
+   *
+   * // Subscribe to specific market slugs
+   * await ws.subscribe({ market_slugs: ['btc-updown-15m-1762755300'] });
+   * ```
    */
-  async subscribe(filters: { users: string[] }): Promise<WebSocketAckMessage> {
+  async subscribe(
+    filters: WebSocketSubscriptionFilters
+  ): Promise<WebSocketAckMessage> {
+    // Validate that at least one filter is provided
+    if (!filters.users && !filters.condition_ids && !filters.market_slugs) {
+      throw new Error(
+        'At least one filter (users, condition_ids, or market_slugs) must be provided'
+      );
+    }
+
     const WS = await getWebSocketImpl();
     // eslint-disable-next-line no-undef
     if (!this.ws || this.ws.readyState !== WS.OPEN) {
@@ -238,6 +263,90 @@ export class PolymarketWebSocketClient extends EventEmitter {
         clearTimeout(timeout);
         this.removeListener('message', messageHandler);
         reject(new Error(`Failed to send subscription: ${error}`));
+      }
+    });
+  }
+
+  /**
+   * Updates an existing subscription's filters without creating a new subscription
+   *
+   * @param subscriptionId - The subscription ID to update
+   * @param filters - New filter configuration (same format as subscribe)
+   * @returns Promise that resolves when update is acknowledged
+   *
+   * @example
+   * ```typescript
+   * // Update subscription to track different users
+   * await ws.update('sub_abc123', { users: ['0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d'] });
+   *
+   * // Switch from user filters to condition ID filters
+   * await ws.update('sub_abc123', { condition_ids: ['0x17815081230e3b9c78b098162c33b1ffa68c4ec29c123d3d14989599e0c2e113'] });
+   * ```
+   */
+  async update(
+    subscriptionId: string,
+    filters: WebSocketSubscriptionFilters
+  ): Promise<void> {
+    // Validate that at least one filter is provided
+    if (!filters.users && !filters.condition_ids && !filters.market_slugs) {
+      throw new Error(
+        'At least one filter (users, condition_ids, or market_slugs) must be provided'
+      );
+    }
+
+    const WS = await getWebSocketImpl();
+    // eslint-disable-next-line no-undef
+    if (!this.ws || this.ws.readyState !== WS.OPEN) {
+      throw new Error('WebSocket is not connected');
+    }
+
+    // Verify subscription exists
+    if (!this.subscriptions.has(subscriptionId)) {
+      throw new Error(`Subscription ${subscriptionId} not found`);
+    }
+
+    const updateMessage: WebSocketUpdateMessage = {
+      action: 'update',
+      subscription_id: subscriptionId,
+      platform: 'polymarket',
+      version: 1,
+      type: 'orders',
+      filters,
+    };
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Update timeout: No acknowledgment received'));
+      }, 10000); // 10 second timeout
+
+      const messageHandler = (message: WebSocketMessage) => {
+        if (
+          message.type === 'ack' &&
+          message.subscription_id === subscriptionId
+        ) {
+          clearTimeout(timeout);
+          this.removeListener('message', messageHandler);
+          // Update the stored subscription with new filters
+          const existingSubscription = this.subscriptions.get(subscriptionId);
+          if (existingSubscription) {
+            const updatedSubscription: WebSocketSubscribeMessage = {
+              ...existingSubscription,
+              filters,
+            };
+            this.subscriptions.set(subscriptionId, updatedSubscription);
+          }
+          resolve();
+        }
+      };
+
+      this.once('message', messageHandler);
+
+      try {
+        this.ws.send(JSON.stringify(updateMessage));
+      } catch (error) {
+        clearTimeout(timeout);
+        this.removeListener('message', messageHandler);
+        reject(new Error(`Failed to send update: ${error}`));
       }
     });
   }

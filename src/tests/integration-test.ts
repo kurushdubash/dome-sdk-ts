@@ -607,87 +607,174 @@ async function runIntegrationTest(apiKey: string): Promise<void> {
   // ===== POLYMARKET WEBSOCKET ENDPOINTS =====
   console.log('🔌 Testing Polymarket WebSocket Endpoints...\n');
 
+  await runTest('Polymarket: WebSocket - Subscribe by users', async () => {
+    const testUser = '0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d';
+    const ws = dome.polymarket.createWebSocket({
+      reconnect: {
+        enabled: false, // Disable auto-reconnect for test
+      },
+    });
+
+    // Connect to WebSocket
+    await ws.connect();
+
+    // Subscribe to orders for the test user
+    const subscription = await ws.subscribe({
+      users: [testUser],
+    });
+
+    console.log(`   Subscribed with ID: ${subscription.subscription_id}`);
+
+    // Wait up to 30 seconds for an order event
+    const timeout = 30000; // 30 seconds
+
+    return new Promise((resolve, reject) => {
+      let orderReceived = false;
+      let timeoutId: ReturnType<typeof setTimeout>;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        ws.removeListener('order', orderHandler);
+        ws.removeListener('error', errorHandler);
+        ws.close();
+      };
+
+      const orderHandler = (order: any) => {
+        if (!orderReceived) {
+          orderReceived = true;
+          console.log(
+            `   ✅ Order received: ${JSON.stringify(order, null, 2).substring(0, 200)}...`
+          );
+          cleanup();
+          resolve({
+            subscription_id: subscription.subscription_id,
+            order_received: true,
+            order: {
+              token_id: order.token_id,
+              token_label: order.token_label,
+              side: order.side,
+              market_slug: order.market_slug,
+              user: order.user,
+              taker: order.taker,
+              timestamp: order.timestamp,
+            },
+          });
+        }
+      };
+
+      const errorHandler = (error: Error) => {
+        if (!orderReceived) {
+          cleanup();
+          reject(new Error(`WebSocket error: ${error.message}`));
+        }
+      };
+
+      ws.on('order', orderHandler);
+      ws.on('error', errorHandler);
+
+      // Set up timeout - fail if no order received within 30 seconds
+      timeoutId = setTimeout(() => {
+        if (!orderReceived) {
+          cleanup();
+          reject(
+            new Error(
+              `No order events received within ${timeout / 1000} seconds for user ${testUser}`
+            )
+          );
+        }
+      }, timeout);
+    });
+  });
+
   await runTest(
-    'Polymarket: WebSocket - Subscribe and receive order events',
+    'Polymarket: WebSocket - Subscribe by condition IDs',
     async () => {
-      const testUser = '0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d';
       const ws = dome.polymarket.createWebSocket({
         reconnect: {
-          enabled: false, // Disable auto-reconnect for test
+          enabled: false,
         },
       });
 
-      // Connect to WebSocket
       await ws.connect();
 
-      // Subscribe to orders for the test user
       const subscription = await ws.subscribe({
-        users: [testUser],
+        condition_ids: [testConditionId],
       });
 
       console.log(`   Subscribed with ID: ${subscription.subscription_id}`);
 
-      // Wait up to 30 seconds for an order event
-      const timeout = 30000; // 30 seconds
-
-      return new Promise((resolve, reject) => {
-        let orderReceived = false;
-        let timeoutId: ReturnType<typeof setTimeout>;
-
-        const cleanup = () => {
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
-          ws.removeListener('order', orderHandler);
-          ws.removeListener('error', errorHandler);
-          ws.close();
-        };
-
-        const orderHandler = (order: any) => {
-          if (!orderReceived) {
-            orderReceived = true;
-            console.log(
-              `   ✅ Order received: ${JSON.stringify(order, null, 2).substring(0, 200)}...`
-            );
-            cleanup();
-            resolve({
-              subscription_id: subscription.subscription_id,
-              order_received: true,
-              order: {
-                token_id: order.token_id,
-                side: order.side,
-                market_slug: order.market_slug,
-                user: order.user,
-                timestamp: order.timestamp,
-              },
-            });
-          }
-        };
-
-        const errorHandler = (error: Error) => {
-          if (!orderReceived) {
-            cleanup();
-            reject(new Error(`WebSocket error: ${error.message}`));
-          }
-        };
-
-        ws.on('order', orderHandler);
-        ws.on('error', errorHandler);
-
-        // Set up timeout - fail if no order received within 30 seconds
-        timeoutId = setTimeout(() => {
-          if (!orderReceived) {
-            cleanup();
-            reject(
-              new Error(
-                `No order events received within ${timeout / 1000} seconds for user ${testUser}`
-              )
-            );
-          }
-        }, timeout);
-      });
+      // Just verify subscription was created, don't wait for events
+      ws.close();
+      return {
+        subscription_id: subscription.subscription_id,
+        filter_type: 'condition_ids',
+      };
     }
   );
+
+  await runTest(
+    'Polymarket: WebSocket - Subscribe by market slugs',
+    async () => {
+      const ws = dome.polymarket.createWebSocket({
+        reconnect: {
+          enabled: false,
+        },
+      });
+
+      await ws.connect();
+
+      const subscription = await ws.subscribe({
+        market_slugs: [testMarketSlug],
+      });
+
+      console.log(`   Subscribed with ID: ${subscription.subscription_id}`);
+
+      // Just verify subscription was created, don't wait for events
+      ws.close();
+      return {
+        subscription_id: subscription.subscription_id,
+        filter_type: 'market_slugs',
+      };
+    }
+  );
+
+  await runTest('Polymarket: WebSocket - Update subscription', async () => {
+    const ws = dome.polymarket.createWebSocket({
+      reconnect: {
+        enabled: false,
+      },
+    });
+
+    await ws.connect();
+
+    // Subscribe with user filter
+    const subscription = await ws.subscribe({
+      users: [testWalletAddress],
+    });
+
+    console.log(`   Subscribed with ID: ${subscription.subscription_id}`);
+
+    // Update to condition ID filter
+    await ws.update(subscription.subscription_id, {
+      condition_ids: [testConditionId],
+    });
+
+    console.log(`   Updated subscription to condition IDs`);
+
+    // Verify subscription was updated
+    const activeSubs = ws.getActiveSubscriptions();
+    const updatedSub = activeSubs.find(
+      s => s.subscription_id === subscription.subscription_id
+    );
+
+    ws.close();
+    return {
+      subscription_id: subscription.subscription_id,
+      updated: updatedSub?.filters.condition_ids !== undefined,
+    };
+  });
 
   // ===== KALSHI ENDPOINTS =====
   console.log('🏈 Testing Kalshi Endpoints...\n');

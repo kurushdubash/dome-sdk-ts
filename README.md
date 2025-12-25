@@ -27,10 +27,12 @@ const dome = new DomeClient({
 
 // Get market price
 const marketPrice = await dome.polymarket.markets.getMarketPrice({
-  token_id: '1234567890',
+  token_id:
+    '56369772478534954338683665819559528414197495274302917800610633957542171787417',
 });
 
 console.log('Market Price:', marketPrice);
+// { price: 0.65, at_time: 1766634610 }
 ```
 
 ## Configuration
@@ -73,13 +75,15 @@ Get current or historical market prices by token ID:
 ```typescript
 // Current price
 const price = await dome.polymarket.markets.getMarketPrice({
-  token_id: '1234567890',
+  token_id:
+    '56369772478534954338683665819559528414197495274302917800610633957542171787417',
 });
 
 // Historical price at specific timestamp
 const historicalPrice = await dome.polymarket.markets.getMarketPrice({
-  token_id: '1234567890',
-  at_time: 1740000000, // Unix timestamp (optional)
+  token_id:
+    '56369772478534954338683665819559528414197495274302917800610633957542171787417',
+  at_time: 1760470000, // Unix timestamp (optional)
 });
 ```
 
@@ -88,7 +92,7 @@ const historicalPrice = await dome.polymarket.markets.getMarketPrice({
 ```typescript
 {
   price: 0.65,
-  at_time: 1740000000
+  at_time: 1766634610
 }
 ```
 
@@ -119,9 +123,10 @@ Fetch historical orderbook snapshots for a specific asset:
 
 ```typescript
 const orderbooks = await dome.polymarket.markets.getOrderbooks({
-  token_id: '1234567890',
-  start_time: 1640995200000, // Unix timestamp in milliseconds (required)
-  end_time: 1672531200000, // Unix timestamp in milliseconds (required)
+  token_id:
+    '56369772478534954338683665819559528414197495274302917800610633957542171787417',
+  start_time: 1760470000000, // Unix timestamp in milliseconds (required)
+  end_time: 1760480000000, // Unix timestamp in milliseconds (required)
   limit: 100, // Optional: number of snapshots per page (default: 100)
   pagination_key: 'abc123', // Optional: pagination key for next page
 });
@@ -152,6 +157,7 @@ const marketsByCondition = await dome.polymarket.markets.getMarkets({
   condition_id: [
     '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
   ],
+  limit: 10,
 });
 
 // Filter by tags and status
@@ -180,6 +186,55 @@ const marketsByEvent = await dome.polymarket.markets.getMarkets({
 - `offset` (number, optional): Pagination offset
 
 #### Wallet
+
+##### Get Wallet
+
+Get wallet information by EOA or proxy address:
+
+```typescript
+// Get wallet by EOA address
+const wallet = await dome.polymarket.wallet.getWallet({
+  eoa: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+  with_metrics: true, // Optional: include trading metrics
+});
+
+// Get wallet by proxy address
+const walletByProxy = await dome.polymarket.wallet.getWallet({
+  proxy: '0x60881d7dce725bfb0399ee0b11cc11f5782f257d',
+});
+```
+
+**Parameters:**
+
+- `eoa` (string, optional): EOA wallet address (either eoa or proxy required)
+- `proxy` (string, optional): Proxy wallet address (either eoa or proxy required)
+- `with_metrics` (boolean, optional): Include trading metrics in response
+- `start_time` (number, optional): Start time for metrics calculation
+- `end_time` (number, optional): End time for metrics calculation
+
+**Response:**
+
+```typescript
+{
+  eoa: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+  proxy: '0x60881d7dce725bfb0399ee0b11cc11f5782f257d',
+  wallet_type: 'safe',
+  wallet_metrics: {
+    total_volume: 150000.50,
+    total_trades: 450,
+    total_markets: 25,
+    highest_volume_day: {
+      date: '2025-10-12',
+      volume: 25000.75,
+      trades: 145
+    },
+    merges: 262,
+    splits: 31,
+    conversions: 4,
+    redemptions: 2338
+  }
+}
+```
 
 ##### Get Wallet PnL
 
@@ -244,7 +299,8 @@ const ordersByCondition = await dome.polymarket.orders.getOrders({
 
 // Get orders by token ID
 const ordersByToken = await dome.polymarket.orders.getOrders({
-  token_id: '1234567890',
+  token_id:
+    '56369772478534954338683665819559528414197495274302917800610633957542171787417',
   limit: 25,
 });
 
@@ -274,18 +330,20 @@ const userOrders = await dome.polymarket.orders.getOrders({
 {
   orders: [
     {
-      token_id: '1234567890',
+      token_id: '56369772478534954338683665819559528414197495274302917800610633957542171787417',
+      token_label: 'Yes',
       side: 'BUY',
       market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
       condition_id: '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
-      shares: 100,
-      shares_normalized: 0.01,
+      shares: 1000000,
+      shares_normalized: 1.0,
       price: 0.65,
       tx_hash: '0x...',
       title: 'Bitcoin Price',
       timestamp: 1640995200,
       order_hash: '0x...',
-      user: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'
+      user: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+      taker: '0x...'
     },
     // ... more orders
   ],
@@ -343,17 +401,17 @@ const activityByCondition = await dome.polymarket.orders.getActivity({
 {
   activities: [
     {
-      token_id: '1234567890',
+      token_id: '56369772478534954338683665819559528414197495274302917800610633957542171787417',
       side: 'MERGE', // or 'SPLIT' or 'REDEEM'
       market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
       condition_id: '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
-      shares: 100,
-      shares_normalized: 0.01,
-      price: 0.65,
+      shares: 1000000,
+      shares_normalized: 1.0,
+      price: 1.0,
       tx_hash: '0x...',
       title: 'Bitcoin Price',
       timestamp: 1640995200,
-      order_hash: '0x...',
+      order_hash: '',
       user: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'
     },
     // ... more activities
@@ -389,33 +447,79 @@ const subscription = await ws.subscribe({
 });
 
 console.log('Subscribed with ID:', subscription.subscription_id);
+```
+
+##### Filter Types
+
+The WebSocket supports three types of filters:
+
+**Filter by Users:**
+
+```typescript
+const subscription = await ws.subscribe({
+  users: ['0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d'],
+});
+```
+
+**Filter by Condition IDs:**
+
+```typescript
+const subscription = await ws.subscribe({
+  condition_ids: [
+    '0x17815081230e3b9c78b098162c33b1ffa68c4ec29c123d3d14989599e0c2e113',
+  ],
+});
+```
+
+**Filter by Market Slugs:**
+
+```typescript
+const subscription = await ws.subscribe({
+  market_slugs: ['btc-updown-15m-1762755300'],
+});
+```
+
+// Subscribe to orders by condition IDs
+const subscriptionByCondition = await ws.subscribe({
+condition_ids: [
+'0x17815081230e3b9c78b098162c33b1ffa68c4ec29c123d3d14989599e0c2e113',
+],
+});
+
+// Subscribe to orders by market slugs
+const subscriptionByMarket = await ws.subscribe({
+market_slugs: ['btc-updown-15m-1762755300'],
+});
 
 // Listen for order events
 ws.on('order', order => {
-  console.log('New order received:', {
-    token_id: order.token_id,
-    side: order.side,
-    market_slug: order.market_slug,
-    price: order.price,
-    shares: order.shares_normalized,
-    user: order.user,
-    timestamp: order.timestamp,
-  });
+console.log('New order received:', {
+token_id: order.token_id,
+token_label: order.token_label,
+side: order.side,
+market_slug: order.market_slug,
+price: order.price,
+shares: order.shares_normalized,
+user: order.user,
+taker: order.taker,
+timestamp: order.timestamp,
+});
 });
 
 // Listen for connection events
 ws.on('open', () => {
-  console.log('WebSocket connected');
+console.log('WebSocket connected');
 });
 
 ws.on('close', () => {
-  console.log('WebSocket disconnected');
+console.log('WebSocket disconnected');
 });
 
 ws.on('error', error => {
-  console.error('WebSocket error:', error);
+console.error('WebSocket error:', error);
 });
-```
+
+````
 
 ##### Configuration Options
 
@@ -445,7 +549,7 @@ const ws = dome.polymarket.createWebSocket({
     console.error('Connection error:', error);
   },
 });
-```
+````
 
 ##### Managing Subscriptions
 
@@ -456,7 +560,9 @@ const sub1 = await ws.subscribe({
 });
 
 const sub2 = await ws.subscribe({
-  users: ['0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'],
+  condition_ids: [
+    '0x17815081230e3b9c78b098162c33b1ffa68c4ec29c123d3d14989599e0c2e113',
+  ],
 });
 
 // Get all active subscriptions
@@ -469,9 +575,21 @@ console.log('Active subscriptions:', activeSubscriptions);
 //   },
 //   {
 //     subscription_id: 'sub_def456',
-//     filters: { users: ['0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'] }
+//     filters: { condition_ids: ['0x17815081230e3b9c78b098162c33b1ffa68c4ec29c123d3d14989599e0c2e113'] }
 //   }
 // ]
+
+// Update an existing subscription's filters (more efficient than unsubscribe + subscribe)
+await ws.update(sub1.subscription_id, {
+  users: ['0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'],
+});
+
+// Switch from user filters to condition ID filters
+await ws.update(sub1.subscription_id, {
+  condition_ids: [
+    '0x17815081230e3b9c78b098162c33b1ffa68c4ec29c123d3d14989599e0c2e113',
+  ],
+});
 
 // Unsubscribe from a specific subscription
 await ws.unsubscribe(sub1.subscription_id);
@@ -521,6 +639,7 @@ ws.on('order', order => {
   // Order object structure:
   console.log({
     token_id: order.token_id, // Token ID
+    token_label: order.token_label, // Token label (e.g., 'Yes', 'No')
     side: order.side, // 'BUY' or 'SELL'
     market_slug: order.market_slug, // Market identifier
     condition_id: order.condition_id, // Condition ID
@@ -531,7 +650,8 @@ ws.on('order', order => {
     title: order.title, // Market title
     timestamp: order.timestamp, // Unix timestamp
     order_hash: order.order_hash, // Order hash
-    user: order.user, // User wallet address
+    user: order.user, // User wallet address (maker)
+    taker: order.taker, // Taker wallet address
   });
 });
 ```
@@ -580,9 +700,11 @@ async function trackOrders() {
   ws.on('order', order => {
     console.log(`📦 New ${order.side} order:`, {
       market: order.market_slug,
+      token_label: order.token_label,
       price: order.price,
       shares: order.shares_normalized,
       user: order.user,
+      taker: order.taker,
     });
   });
 
@@ -597,12 +719,21 @@ async function trackOrders() {
 trackOrders().catch(console.error);
 ```
 
+**Filter Types:**
+
+You can filter orders by:
+
+- **users**: Array of wallet addresses to track
+- **condition_ids**: Array of condition IDs to track
+- **market_slugs**: Array of market slugs to track
+
 **Important Notes:**
 
-- The WebSocket server only supports receiving order information (no user inputs besides subscribe/unsubscribe)
+- The WebSocket server only supports receiving order information (no user inputs besides subscribe/unsubscribe/update)
 - If disconnected, the SDK automatically reconnects and re-subscribes to all previous subscriptions
 - Order event data follows the same format as the [orders API endpoint](https://docs.domeapi.io/api-reference/endpoint/get-trade-history)
 - Subscriptions are tracked internally and can be managed via `getActiveSubscriptions()`
+- Use `update()` to modify subscription filters without creating a new subscription (more efficient than unsubscribe + subscribe)
 
 ### Kalshi
 
@@ -613,9 +744,9 @@ trackOrders().catch(console.error);
 Fetch Kalshi market data with optional filtering:
 
 ```typescript
-// Get markets by market ticker
+// Get markets by market ticker (tickers can contain special characters like ".", "/", ")", "(")
 const markets = await dome.kalshi.markets.getMarkets({
-  market_ticker: ['MARKET-TICKER-123'],
+  market_ticker: ['KXMAYORNYCPARTY-25-D', '538APPROVE-22AUG03-B38.4'],
   limit: 50,
   offset: 0,
 });
@@ -642,8 +773,8 @@ const closedMarkets = await dome.kalshi.markets.getMarkets({
 
 **Parameters:**
 
-- `market_ticker` (string[], optional): Array of market tickers
-- `event_ticker` (string[], optional): Array of event tickers
+- `market_ticker` (string[], optional): Array of market tickers (can contain special characters like ".", "/", ")", "(")
+- `event_ticker` (string[], optional): Array of event tickers (can contain special characters like ".", "/", ")", "(")
 - `status` ('open' | 'closed', optional): Market status filter
 - `min_volume` (number, optional): Minimum volume filter
 - `limit` (number, optional): Results per page
@@ -655,16 +786,16 @@ const closedMarkets = await dome.kalshi.markets.getMarkets({
 {
   markets: [
     {
-      event_ticker: 'KXNFLGAME-25AUG16ARIDEN',
-      market_ticker: 'MARKET-TICKER-123',
-      title: 'Will Team A win?',
-      start_time: 1726459200,
-      end_time: 1726473600,
-      close_time: 1726473600,
+      event_ticker: 'KXMAYORNYCPARTY-25',
+      market_ticker: 'KXMAYORNYCPARTY-25-D', // Can contain special characters like ".", "/", ")", "("
+      title: 'Will a representative of the Democratic party win the NYC Mayor race in 2025?',
+      start_time: 1731150000,
+      end_time: 1793775600,
+      close_time: 1793775600,
       status: 'open',
-      last_price: 65,
-      volume: 125000,
-      volume_24h: 25000,
+      last_price: 89,
+      volume: 18261146,
+      volume_24h: 931138,
       result: null
     },
     // ... more markets
@@ -683,20 +814,77 @@ const closedMarkets = await dome.kalshi.markets.getMarkets({
 Fetch historical orderbook snapshots for a specific Kalshi market:
 
 ```typescript
+// Ticker can contain special characters like ".", "/", ")", "("
 const orderbooks = await dome.kalshi.markets.getOrderbooks({
-  ticker: 'MARKET-TICKER-123',
-  start_time: 1640995200000, // Unix timestamp in milliseconds (required)
-  end_time: 1672531200000, // Unix timestamp in milliseconds (required)
+  ticker: 'KXMAYORNYCPARTY-25-D',
+  start_time: 1760470000000, // Unix timestamp in milliseconds (required)
+  end_time: 1760480000000, // Unix timestamp in milliseconds (required)
   limit: 100, // Optional: number of snapshots per page
 });
 ```
 
 **Parameters:**
 
-- `ticker` (string, required): Market ticker
+- `ticker` (string, required): Market ticker (can contain special characters like ".", "/", ")", "(")
 - `start_time` (number, required): Unix timestamp in milliseconds
 - `end_time` (number, required): Unix timestamp in milliseconds
 - `limit` (number, optional): Results per page
+
+##### Get Trades
+
+Fetch historical trade data for Kalshi markets:
+
+```typescript
+// Get trades by ticker (ticker can contain special characters like ".", "/", ")", "(")
+const trades = await dome.kalshi.markets.getTrades({
+  ticker: 'KXNFLGAME-25NOV09PITLAC-PIT',
+  limit: 50,
+  offset: 0,
+});
+
+// Get trades with time range
+const tradesByTime = await dome.kalshi.markets.getTrades({
+  ticker: 'KXNFLGAME-25NOV09PITLAC-PIT',
+  start_time: 1762716000, // Unix timestamp in seconds
+  end_time: 1762720600,
+  limit: 100,
+});
+```
+
+**Parameters:**
+
+- `ticker` (string, optional): Market ticker to filter trades (can contain special characters)
+- `start_time` (number, optional): Start time in Unix timestamp (seconds)
+- `end_time` (number, optional): End time in Unix timestamp (seconds)
+- `limit` (number, optional): Results per page
+- `offset` (number, optional): Pagination offset
+
+**Response:**
+
+```typescript
+{
+  trades: [
+    {
+      trade_id: '587f9eb0-1ae1-7b53-9536-fcf3fc503630',
+      market_ticker: 'KXNFLGAME-25NOV09PITLAC-PIT',
+      count: 93,
+      yes_price: 1,
+      no_price: 99,
+      yes_price_dollars: 0.01,
+      no_price_dollars: 0.99,
+      taker_side: 'yes',
+      created_time: 1762718746
+    },
+    // ... more trades
+  ],
+  pagination: {
+    limit: 50,
+    offset: 0,
+    total: 43154,
+    has_more: true
+  }
+}
+```
 
 **Response:**
 
@@ -705,13 +893,13 @@ const orderbooks = await dome.kalshi.markets.getOrderbooks({
   snapshots: [
     {
       orderbook: {
-        yes: [[65, 100], [66, 150]], // [price_in_cents, size]
-        no: [[34, 200], [35, 250]],
-        yes_dollars: [['0.65', 100], ['0.66', 150]], // [price_in_dollars, size]
-        no_dollars: [['0.34', 200], ['0.35', 250]]
+        yes: [[75, 100], [76, 150]], // [price_in_cents, size]
+        no: [[24, 200], [25, 250]],
+        yes_dollars: [['0.75', 100], ['0.76', 150]], // [price_in_dollars, size]
+        no_dollars: [['0.24', 200], ['0.25', 250]]
       },
-      timestamp: 1640995200000,
-      ticker: 'MARKET-TICKER-123'
+      timestamp: 1760471849407,
+      ticker: 'KXMAYORNYCPARTY-25-D' // Can contain special characters
     },
     // ... more snapshots
   ],
@@ -741,7 +929,7 @@ const matchingMarketsKalshi = await dome.matchingMarkets.getMatchingMarkets({
 // By sport and date
 const matchingMarketsBySport =
   await dome.matchingMarkets.getMatchingMarketsBySport({
-    sport: 'nfl', // 'nfl', 'mlb', 'cfb', 'nba', or 'nhl'
+    sport: 'nfl', // 'nfl', 'mlb', 'cfb', 'nba', 'nhl', or 'cbb'
     date: '2025-08-16', // YYYY-MM-DD format
   });
 ```
@@ -749,11 +937,11 @@ const matchingMarketsBySport =
 **Parameters for `getMatchingMarkets`:**
 
 - `polymarket_market_slug` (string[], optional): Array of Polymarket market slugs
-- `kalshi_event_ticker` (string[], optional): Array of Kalshi event tickers
+- `kalshi_event_ticker` (string[], optional): Array of Kalshi event tickers (can contain special characters like ".", "/", ")", "(")
 
 **Parameters for `getMatchingMarketsBySport`:**
 
-- `sport` ('nfl' | 'mlb' | 'cfb' | 'nba' | 'nhl', required): Sport type
+- `sport` ('nfl' | 'mlb' | 'cfb' | 'nba' | 'nhl' | 'cbb', required): Sport type
 - `date` (string, required): Date in YYYY-MM-DD format
 
 **Response:**
@@ -770,10 +958,102 @@ const matchingMarketsBySport =
       {
         platform: 'KALSHI',
         event_ticker: 'KXNFLGAME-25AUG16ARIDEN',
-        market_tickers: ['MARKET-TICKER-123', 'MARKET-TICKER-456']
+        market_tickers: ['KXNFLGAME-25AUG16ARIDEN-ARI', 'KXNFLGAME-25AUG16ARIDEN-DEN'] // Can contain special characters
       }
     ]
   }
+}
+```
+
+### Crypto Prices
+
+#### Binance Prices
+
+Fetch historical crypto price data from Binance:
+
+```typescript
+// Get latest price
+const latestPrice = await dome.cryptoPrices.getBinancePrices({
+  currency: 'btcusdt', // Currency format: lowercase, no separators (e.g., btcusdt, ethusdt)
+});
+
+// Get prices with time range
+const prices = await dome.cryptoPrices.getBinancePrices({
+  currency: 'btcusdt',
+  start_time: 1766130000000, // Unix timestamp in milliseconds
+  end_time: 1766131000000,
+  limit: 100,
+  pagination_key: 'abc123', // Optional: for pagination
+});
+```
+
+**Parameters:**
+
+- `currency` (string, required): Currency pair (lowercase, no separators, e.g., `btcusdt`, `ethusdt`)
+- `start_time` (number, optional): Start time in Unix milliseconds
+- `end_time` (number, optional): End time in Unix milliseconds
+- `limit` (number, optional): Results per page (max: 100)
+- `pagination_key` (string, optional): Pagination key for next page
+
+**Response:**
+
+```typescript
+{
+  prices: [
+    {
+      symbol: 'btcusdt',
+      value: '67500.50',
+      timestamp: 1766130500000
+    },
+    // ... more prices
+  ],
+  pagination_key: 'eyJpZCI6IlBSSUNFI2J0Y3VzZHQiLCJ0aW1lc3RhbXAiOjE3NjYxMzEwMDAwMDB9',
+  total: 100
+}
+```
+
+#### Chainlink Prices
+
+Fetch historical crypto price data from Chainlink:
+
+```typescript
+// Get latest price
+const latestPrice = await dome.cryptoPrices.getChainlinkPrices({
+  currency: 'eth/usd', // Currency format: slash-separated (e.g., btc/usd, eth/usd)
+});
+
+// Get prices with time range
+const prices = await dome.cryptoPrices.getChainlinkPrices({
+  currency: 'eth/usd',
+  start_time: 1766130000000, // Unix timestamp in milliseconds
+  end_time: 1766131000000,
+  limit: 100,
+  pagination_key: 'abc123', // Optional: for pagination
+});
+```
+
+**Parameters:**
+
+- `currency` (string, required): Currency pair (slash-separated, e.g., `btc/usd`, `eth/usd`)
+- `start_time` (number, optional): Start time in Unix milliseconds
+- `end_time` (number, optional): End time in Unix milliseconds
+- `limit` (number, optional): Results per page (max: 100)
+- `pagination_key` (string, optional): Pagination key for next page
+
+**Response:**
+
+```typescript
+{
+  prices: [
+    {
+      symbol: 'eth/usd',
+      value: 3250.75,
+      timestamp: 1766130500000
+    },
+    // ... more prices
+  ],
+  pagination_key: 'eyJpZCI6IkNIQUlOTElOSyNidGMvdXNkIiwidGltZXN0YW1wIjoxNzY2MTMxMDAwMDAwfQ==',
+  total: 100
 }
 ```
 

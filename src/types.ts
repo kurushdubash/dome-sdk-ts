@@ -469,11 +469,22 @@ export interface RequestConfig {
 
 // ===== WebSocket Types =====
 export interface WebSocketSubscriptionFilters {
-  users: string[];
+  users?: string[];
+  condition_ids?: string[];
+  market_slugs?: string[];
 }
 
 export interface WebSocketSubscribeMessage {
   action: 'subscribe';
+  platform: 'polymarket';
+  version: 1;
+  type: 'orders';
+  filters: WebSocketSubscriptionFilters;
+}
+
+export interface WebSocketUpdateMessage {
+  action: 'update';
+  subscription_id: string;
   platform: 'polymarket';
   version: 1;
   type: 'orders';
