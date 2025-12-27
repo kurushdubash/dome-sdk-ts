@@ -1,8 +1,10 @@
 /**
- * Privy Utility Functions
+ * Wallet Utility Functions
  *
- * Helper functions to easily integrate Privy with Dome SDK for Polymarket trading.
- * These utilities handle server-side wallet signing using Privy's authorization keys.
+ * Helper functions to easily integrate wallets with Dome SDK for Polymarket trading.
+ * Supports:
+ * - Privy server-side wallet signing (via authorization keys)
+ * - Direct EOA signing (via private key - for Polymarket exported wallets)
  */
 
 import { PrivyClient } from '@privy-io/server-auth';
@@ -425,4 +427,99 @@ export async function setPrivyWalletAllowances(
   }
 
   return txHashes;
+}
+
+// ===== EOA (Private Key) Signing =====
+
+/**
+ * Creates a RouterSigner from a private key for direct EOA signing
+ *
+ * This is ideal for users who have exported their private key from Polymarket's
+ * settings page. Since Polymarket wallets already have allowances set up,
+ * you can use this to immediately start placing orders.
+ *
+ * @param privateKey - The private key (with or without 0x prefix)
+ * @returns RouterSigner that can be used with PolymarketRouter
+ *
+ * @example
+ * ```typescript
+ * // Export private key from Polymarket settings page
+ * const signer = createEoaSigner(process.env.PRIVATE_KEY!);
+ *
+ * // Get the wallet address
+ * const address = await signer.getAddress();
+ *
+ * // Use with PolymarketRouter
+ * const credentials = await router.linkUser({
+ *   userId: 'user-123',
+ *   signer,
+ * });
+ *
+ * await router.placeOrder({
+ *   userId: 'user-123',
+ *   marketId: '104173557214744537570424345347209544585775842950109756851652855913015295701992',
+ *   side: 'buy',
+ *   size: 100,
+ *   price: 0.50,
+ *   signer,
+ * }, credentials);
+ * ```
+ */
+export function createEoaSigner(privateKey: string): RouterSigner {
+  // Normalize private key (add 0x prefix if missing)
+  const normalizedKey = privateKey.startsWith('0x')
+    ? privateKey
+    : `0x${privateKey}`;
+
+  const wallet = new ethers.Wallet(normalizedKey);
+
+  return {
+    async getAddress(): Promise<string> {
+      return wallet.address;
+    },
+
+    async signTypedData(payload: Eip712Payload): Promise<string> {
+      // Remove EIP712Domain from types if present (ethers handles it automatically)
+      const { EIP712Domain, ...typesWithoutDomain } = payload.types;
+
+      const signature = await wallet._signTypedData(
+        payload.domain,
+        typesWithoutDomain,
+        payload.message
+      );
+
+      return signature;
+    },
+  };
+}
+
+/**
+ * Creates a RouterSigner from the PRIVATE_KEY environment variable
+ *
+ * This is the simplest way to use a Polymarket exported wallet.
+ * Just set the PRIVATE_KEY environment variable and call this function.
+ *
+ * @returns RouterSigner ready to use
+ * @throws Error if PRIVATE_KEY environment variable is not set
+ *
+ * @example
+ * ```typescript
+ * // .env file:
+ * // PRIVATE_KEY=your-exported-polymarket-private-key
+ *
+ * const signer = createEoaSignerFromEnv();
+ * const address = await signer.getAddress();
+ * console.log('Wallet address:', address);
+ * ```
+ */
+export function createEoaSignerFromEnv(): RouterSigner {
+  const privateKey = process.env.PRIVATE_KEY;
+
+  if (!privateKey) {
+    throw new Error(
+      'Missing PRIVATE_KEY environment variable. Export your private key from Polymarket settings.'
+    );
+  }
+
+  return createEoaSigner(privateKey);
 }
