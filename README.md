@@ -274,6 +274,61 @@ const walletPnL = await dome.polymarket.wallet.getWalletPnL({
 }
 ```
 
+##### Get Positions
+
+Fetch active positions for a specific wallet address:
+
+```typescript
+const positions = await dome.polymarket.wallet.getPositions({
+  wallet_address: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+  limit: 50, // Optional: results per page (default: 100)
+  pagination_key: 'abc123', // Optional: pagination key for next page
+});
+```
+
+**Parameters:**
+
+- `wallet_address` (string, required): Ethereum wallet address
+- `limit` (number, optional): Results per page (default: 100)
+- `pagination_key` (string, optional): Key for pagination
+
+**Response:**
+
+```typescript
+{
+  wallet_address: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+  positions: [
+    {
+      wallet: '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
+      token_id: '56369772478534954338683665819559528414197495274302917800610633957542171787417',
+      condition_id: '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57',
+      title: 'Will Bitcoin reach $100K by December 2025?',
+      shares: 1500000,
+      shares_normalized: 1.5,
+      redeemable: false,
+      market_slug: 'bitcoin-above-100k',
+      event_slug: 'bitcoin-price-2025',
+      image: 'https://...',
+      label: 'Yes',
+      winning_outcome: null, // null if market not resolved, otherwise { outcome_index: 0, outcome_label: 'Yes' }
+      start_time: 1640995200,
+      end_time: 1672531200,
+      completed_time: null,
+      close_time: 1672531200,
+      game_start_time: null,
+      market_status: 'open',
+      negativeRisk: false
+    },
+    // ... more positions
+  ],
+  pagination: {
+    has_more: true,
+    limit: 50,
+    pagination_key: 'next_page_key'
+  }
+}
+```
+
 #### Orders
 
 ##### Get Orders
@@ -738,6 +793,43 @@ You can filter orders by:
 ### Kalshi
 
 #### Markets
+
+##### Get Market Price
+
+Get current or historical market prices for a Kalshi market by ticker:
+
+```typescript
+// Get current price for both yes and no sides
+const price = await dome.kalshi.markets.getMarketPrice({
+  market_ticker: 'KXMAYORNYCPARTY-25-D',
+});
+
+// Get historical price at specific timestamp
+const historicalPrice = await dome.kalshi.markets.getMarketPrice({
+  market_ticker: 'KXMAYORNYCPARTY-25-D',
+  at_time: 1760470000, // Unix timestamp in seconds (optional)
+});
+```
+
+**Parameters:**
+
+- `market_ticker` (string, required): The Kalshi market ticker
+- `at_time` (number, optional): Unix timestamp in seconds for historical price
+
+**Response:**
+
+```typescript
+{
+  yes: {
+    price: 89,
+    at_time: 1766634610
+  },
+  no: {
+    price: 11,
+    at_time: 1766634610
+  }
+}
+```
 
 ##### Get Markets
 
