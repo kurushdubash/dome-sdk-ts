@@ -25,11 +25,31 @@ interface TestResults {
 }
 
 /**
+ * Gets the latest version of @dome-api/sdk from npm
+ */
+function getLatestVersion(): string {
+  try {
+    const version = execSync('npm view @dome-api/sdk version', {
+      encoding: 'utf-8',
+      cwd: process.cwd(),
+    }).trim();
+    return version;
+  } catch (error) {
+    console.warn(
+      '⚠️  Could not fetch latest version from npm, falling back to "latest" tag'
+    );
+    return 'latest';
+  }
+}
+
+/**
  * Loads the DomeClient from either local source or external npm package
  */
 async function loadDomeClient(useExternal: boolean): Promise<any> {
   if (useExternal) {
-    console.log('📦 Using external npm package @dome-api/sdk@0.17.0\n');
+    const version = getLatestVersion();
+    const packageSpec = `@dome-api/sdk@${version}`;
+    console.log(`📦 Using external npm package ${packageSpec}\n`);
 
     // Check if package is already installed in node_modules
     const nodeModulesPath = join(
@@ -42,12 +62,12 @@ async function loadDomeClient(useExternal: boolean): Promise<any> {
 
     if (!isInstalled) {
       console.log(
-        '📥 External package not found. Installing @dome-api/sdk@0.17.0...\n'
+        `📥 External package not found. Installing ${packageSpec}...\n`
       );
 
       try {
         // Install the package to the current project's node_modules
-        execSync('npm install @dome-api/sdk@0.17.0 --no-save', {
+        execSync(`npm install ${packageSpec} --no-save`, {
           stdio: 'inherit',
           cwd: process.cwd(),
         });
@@ -55,7 +75,7 @@ async function loadDomeClient(useExternal: boolean): Promise<any> {
       } catch (installError) {
         console.error('❌ Failed to install external package:', installError);
         throw new Error(
-          'Could not install @dome-api/sdk@0.17.0. Please install it manually: npm install @dome-api/sdk@0.17.0'
+          `Could not install ${packageSpec}. Please install it manually: npm install ${packageSpec}`
         );
       }
     }
@@ -69,7 +89,7 @@ async function loadDomeClient(useExternal: boolean): Promise<any> {
     } catch (importError) {
       console.error('❌ Failed to import external package:', importError);
       throw new Error(
-        'Could not import @dome-api/sdk. Please ensure it is installed: npm install @dome-api/sdk@0.17.0'
+        `Could not import @dome-api/sdk. Please ensure it is installed: npm install ${packageSpec}`
       );
     }
   } else {
@@ -1929,7 +1949,7 @@ async function main(): Promise<void> {
     console.log('');
     console.log('Options:');
     console.log(
-      '  --external    Use the published npm package @dome-api/sdk@0.17.0 instead of local source'
+      '  --external    Use the published npm package @dome-api/sdk (latest version) instead of local source'
     );
     console.log('');
     console.log('Example:');
