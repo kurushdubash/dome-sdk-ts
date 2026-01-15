@@ -1,5 +1,7 @@
 import { BaseClient } from '../../base-client.js';
 import {
+  KalshiMarketPriceResponse,
+  GetKalshiMarketPriceParams,
   KalshiMarketsResponse,
   GetKalshiMarketsParams,
   KalshiOrderbooksResponse,
@@ -14,6 +16,35 @@ import {
  * Handles Kalshi market data and orderbook history
  */
 export class KalshiEndpoints extends BaseClient {
+  /**
+   * Get Kalshi Market Price
+   *
+   * Fetches the current market price for a Kalshi market by market ticker.
+   * Returns both yes and no side prices. Allows historical lookups via the at_time query parameter.
+   *
+   * @param params - Parameters for the market price request
+   * @param options - Optional request configuration
+   * @returns Promise resolving to market price data with yes/no sides
+   */
+  async getMarketPrice(
+    params: GetKalshiMarketPriceParams,
+    options?: RequestConfig
+  ): Promise<KalshiMarketPriceResponse> {
+    const { market_ticker, at_time } = params;
+    const queryParams: Record<string, any> = {};
+
+    if (at_time !== undefined) {
+      queryParams.at_time = at_time;
+    }
+
+    return this.makeRequest<KalshiMarketPriceResponse>(
+      'GET',
+      `/kalshi/market-price/${market_ticker}`,
+      queryParams,
+      options
+    );
+  }
+
   /**
    * Get Kalshi Markets
    *

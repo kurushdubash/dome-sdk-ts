@@ -4,6 +4,8 @@ import {
   GetWalletPnLParams,
   WalletResponse,
   GetWalletParams,
+  PositionsResponse,
+  GetPositionsParams,
   RequestConfig,
 } from '../../types.js';
 
@@ -84,6 +86,39 @@ export class WalletEndpoints extends BaseClient {
     return this.makeRequest<WalletPnLResponse>(
       'GET',
       `/polymarket/wallet/pnl/${wallet_address}`,
+      queryParams,
+      options
+    );
+  }
+
+  /**
+   * Get Positions
+   *
+   * Fetches active positions for a specific wallet address.
+   * Returns all open positions with market details, shares held, and redeemability status.
+   *
+   * @param params - Parameters for the positions request
+   * @param options - Optional request configuration
+   * @returns Promise resolving to positions data with pagination
+   */
+  async getPositions(
+    params: GetPositionsParams,
+    options?: RequestConfig
+  ): Promise<PositionsResponse> {
+    const { wallet_address, limit, pagination_key } = params;
+    const queryParams: Record<string, any> = {};
+
+    if (limit !== undefined) {
+      queryParams.limit = limit;
+    }
+
+    if (pagination_key !== undefined) {
+      queryParams.pagination_key = pagination_key;
+    }
+
+    return this.makeRequest<PositionsResponse>(
+      'GET',
+      `/polymarket/positions/wallet/${wallet_address}`,
       queryParams,
       options
     );

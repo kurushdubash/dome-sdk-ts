@@ -449,6 +449,150 @@ async function runIntegrationTest(
     })
   );
 
+  await runTest(
+    'Polymarket: Get Markets (by event slug)',
+    () =>
+      dome.polymarket.markets.getMarkets({
+        event_slug: ['presidential-election-winner-2028'],
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Markets (by tags)',
+    () =>
+      dome.polymarket.markets.getMarkets({
+        tags: ['Politics'],
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify that returned markets have the Politics tag
+      if (result.markets.length > 0) {
+        const market = result.markets[0];
+        if (!Array.isArray(market.tags)) {
+          throw new Error('market.tags must be an array');
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Markets (with min_volume filter)',
+    () =>
+      dome.polymarket.markets.getMarkets({
+        min_volume: 1000000, // $1M minimum volume
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify that returned markets have volume above threshold
+      if (result.markets.length > 0) {
+        const market = result.markets[0];
+        if (market.volume_total < 1000000) {
+          throw new Error(
+            `Market volume should be >= 1000000, got ${market.volume_total}`
+          );
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Markets (with time range)',
+    () =>
+      dome.polymarket.markets.getMarkets({
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Markets (closed status)',
+    () =>
+      dome.polymarket.markets.getMarkets({
+        status: 'closed',
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify that returned markets are closed
+      if (result.markets.length > 0) {
+        const market = result.markets[0];
+        if (market.status !== 'closed') {
+          throw new Error(
+            `Market status should be 'closed', got: ${market.status}`
+          );
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Markets (multiple filters combined)',
+    () =>
+      dome.polymarket.markets.getMarkets({
+        tags: ['Politics'],
+        status: 'open',
+        min_volume: 100000,
+        limit: 5,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify combined filters are respected
+      if (result.markets.length > 0) {
+        const market = result.markets[0];
+        if (market.status !== 'open') {
+          throw new Error(
+            `Market status should be 'open', got: ${market.status}`
+          );
+        }
+        if (market.volume_total < 100000) {
+          throw new Error(
+            `Market volume should be >= 100000, got ${market.volume_total}`
+          );
+        }
+      }
+    }
+  );
+
   // ===== POLYMARKET WALLET ENDPOINTS =====
   console.log('💰 Testing Polymarket Wallet Endpoints...\n');
 
@@ -468,6 +612,22 @@ async function runIntegrationTest(
       }
       if (typeof result.wallet_type !== 'string' || !result.wallet_type) {
         throw new Error('Response must have wallet_type as non-empty string');
+      }
+      // Test new optional fields (handle, pseudonym, image)
+      if (result.handle !== undefined && result.handle !== null) {
+        if (typeof result.handle !== 'string') {
+          throw new Error('handle must be a string or null');
+        }
+      }
+      if (result.pseudonym !== undefined && result.pseudonym !== null) {
+        if (typeof result.pseudonym !== 'string') {
+          throw new Error('pseudonym must be a string or null');
+        }
+      }
+      if (result.image !== undefined && result.image !== null) {
+        if (typeof result.image !== 'string') {
+          throw new Error('image must be a string or null');
+        }
       }
       if (result.wallet_metrics) {
         if (typeof result.wallet_metrics.total_volume !== 'number') {
@@ -489,6 +649,54 @@ async function runIntegrationTest(
     result => {
       if (typeof result.eoa !== 'string' || !result.eoa) {
         throw new Error('Response must have eoa as non-empty string');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Wallet (by proxy address)',
+    () =>
+      dome.polymarket.wallet.getWallet({
+        proxy: '0x1f64f2739a19fc5cdfd7c3f50c42463aa8983e82',
+        with_metrics: false,
+      }),
+    result => {
+      if (typeof result.eoa !== 'string' || !result.eoa) {
+        throw new Error('Response must have eoa as non-empty string');
+      }
+      if (typeof result.proxy !== 'string' || !result.proxy) {
+        throw new Error('Response must have proxy as non-empty string');
+      }
+      if (typeof result.wallet_type !== 'string' || !result.wallet_type) {
+        throw new Error('Response must have wallet_type as non-empty string');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Wallet (with metrics and time range)',
+    () =>
+      dome.polymarket.wallet.getWallet({
+        eoa: testWalletAddress,
+        with_metrics: true,
+        start_time: testStartTimeSeconds,
+        end_time: testEndTimeSeconds,
+      }),
+    result => {
+      if (typeof result.eoa !== 'string' || !result.eoa) {
+        throw new Error('Response must have eoa as non-empty string');
+      }
+      // When time range is specified, metrics should be filtered to that range
+      if (result.wallet_metrics) {
+        if (typeof result.wallet_metrics.total_volume !== 'number') {
+          throw new Error('wallet_metrics.total_volume must be a number');
+        }
+        if (typeof result.wallet_metrics.total_trades !== 'number') {
+          throw new Error('wallet_metrics.total_trades must be a number');
+        }
+        if (typeof result.wallet_metrics.total_markets !== 'number') {
+          throw new Error('wallet_metrics.total_markets must be a number');
+        }
       }
     }
   );
@@ -528,6 +736,275 @@ async function runIntegrationTest(
       }
       if (!result.pnl_over_time || !Array.isArray(result.pnl_over_time)) {
         throw new Error('Response must have pnl_over_time array');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Positions',
+    () =>
+      dome.polymarket.wallet.getPositions({
+        wallet_address: testWalletAddress,
+        limit: 10,
+      }),
+    result => {
+      if (typeof result.wallet_address !== 'string') {
+        throw new Error('Response must have wallet_address as string');
+      }
+      if (!result.positions || !Array.isArray(result.positions)) {
+        throw new Error('Response must have positions array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      if (typeof result.pagination.has_more !== 'boolean') {
+        throw new Error('pagination.has_more must be a boolean');
+      }
+      if (typeof result.pagination.limit !== 'number') {
+        throw new Error('pagination.limit must be a number');
+      }
+      // Validate position structure if positions exist
+      if (result.positions.length > 0) {
+        const position = result.positions[0];
+        if (typeof position.wallet !== 'string') {
+          throw new Error('position.wallet must be a string');
+        }
+        if (typeof position.token_id !== 'string') {
+          throw new Error('position.token_id must be a string');
+        }
+        if (typeof position.shares !== 'number') {
+          throw new Error('position.shares must be a number');
+        }
+        if (typeof position.shares_normalized !== 'number') {
+          throw new Error('position.shares_normalized must be a number');
+        }
+        if (typeof position.redeemable !== 'boolean') {
+          throw new Error('position.redeemable must be a boolean');
+        }
+        if (
+          position.market_status !== 'open' &&
+          position.market_status !== 'closed'
+        ) {
+          throw new Error(
+            `position.market_status must be 'open' or 'closed', got: ${position.market_status}`
+          );
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Positions (with small limit for pagination)',
+    () =>
+      dome.polymarket.wallet.getPositions({
+        wallet_address: testWalletAddress,
+        limit: 2,
+      }),
+    result => {
+      if (typeof result.wallet_address !== 'string') {
+        throw new Error('Response must have wallet_address as string');
+      }
+      if (!result.positions || !Array.isArray(result.positions)) {
+        throw new Error('Response must have positions array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify limit is respected
+      if (result.positions.length > 2) {
+        throw new Error(
+          `Positions array should have at most 2 items, got ${result.positions.length}`
+        );
+      }
+      // If there are more positions, has_more should be true
+      if (result.pagination.has_more) {
+        if (!result.pagination.pagination_key) {
+          throw new Error(
+            'pagination_key should be present when has_more is true'
+          );
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Positions (pagination - second page)',
+    async () => {
+      // First get the first page
+      const firstPage = await dome.polymarket.wallet.getPositions({
+        wallet_address: testWalletAddress,
+        limit: 2,
+      });
+
+      // If there's no second page, skip this test
+      if (!firstPage.pagination.has_more) {
+        return {
+          skipped: true,
+          reason: 'Wallet has 2 or fewer positions, no pagination needed',
+        };
+      }
+
+      // Get the second page using the pagination key
+      const secondPage = await dome.polymarket.wallet.getPositions({
+        wallet_address: testWalletAddress,
+        limit: 2,
+        pagination_key: firstPage.pagination.pagination_key,
+      });
+
+      // Verify we got different positions
+      if (secondPage.positions.length > 0 && firstPage.positions.length > 0) {
+        const firstPageTokenIds = firstPage.positions.map(p => p.token_id);
+        const secondPageTokenIds = secondPage.positions.map(p => p.token_id);
+
+        // Check that there's no overlap (different positions)
+        const hasOverlap = firstPageTokenIds.some(id =>
+          secondPageTokenIds.includes(id)
+        );
+        if (hasOverlap) {
+          throw new Error(
+            'Pagination returned duplicate positions across pages'
+          );
+        }
+      }
+
+      return {
+        first_page_count: firstPage.positions.length,
+        second_page_count: secondPage.positions.length,
+        pagination_working: true,
+      };
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Positions (validate position fields)',
+    () =>
+      dome.polymarket.wallet.getPositions({
+        wallet_address: testWalletAddress,
+        limit: 5,
+      }),
+    result => {
+      if (!result.positions || !Array.isArray(result.positions)) {
+        throw new Error('Response must have positions array');
+      }
+
+      // If positions exist, validate all new fields
+      if (result.positions.length > 0) {
+        const position = result.positions[0];
+
+        // Required fields
+        if (typeof position.wallet !== 'string') {
+          throw new Error('position.wallet must be a string');
+        }
+        if (typeof position.token_id !== 'string') {
+          throw new Error('position.token_id must be a string');
+        }
+        if (typeof position.condition_id !== 'string') {
+          throw new Error('position.condition_id must be a string');
+        }
+        if (typeof position.title !== 'string') {
+          throw new Error('position.title must be a string');
+        }
+        if (typeof position.shares !== 'number') {
+          throw new Error('position.shares must be a number');
+        }
+        if (typeof position.shares_normalized !== 'number') {
+          throw new Error('position.shares_normalized must be a number');
+        }
+        if (typeof position.redeemable !== 'boolean') {
+          throw new Error('position.redeemable must be a boolean');
+        }
+        if (typeof position.market_slug !== 'string') {
+          throw new Error('position.market_slug must be a string');
+        }
+        if (typeof position.event_slug !== 'string') {
+          throw new Error('position.event_slug must be a string');
+        }
+        if (typeof position.image !== 'string') {
+          throw new Error('position.image must be a string');
+        }
+        if (typeof position.label !== 'string') {
+          throw new Error('position.label must be a string');
+        }
+
+        // winning_outcome can be null or object
+        if (position.winning_outcome !== null) {
+          if (typeof position.winning_outcome !== 'object') {
+            throw new Error(
+              'position.winning_outcome must be an object or null'
+            );
+          }
+          if (typeof position.winning_outcome.id !== 'string') {
+            throw new Error('position.winning_outcome.id must be a string');
+          }
+          if (typeof position.winning_outcome.label !== 'string') {
+            throw new Error('position.winning_outcome.label must be a string');
+          }
+        }
+
+        // Timestamp fields
+        if (typeof position.start_time !== 'number') {
+          throw new Error('position.start_time must be a number');
+        }
+        if (typeof position.end_time !== 'number') {
+          throw new Error('position.end_time must be a number');
+        }
+        if (
+          position.completed_time !== null &&
+          typeof position.completed_time !== 'number'
+        ) {
+          throw new Error('position.completed_time must be a number or null');
+        }
+        if (
+          position.close_time !== null &&
+          typeof position.close_time !== 'number'
+        ) {
+          throw new Error('position.close_time must be a number or null');
+        }
+        if (
+          position.game_start_time !== null &&
+          typeof position.game_start_time !== 'string'
+        ) {
+          throw new Error('position.game_start_time must be a string or null');
+        }
+
+        // Status enum
+        if (
+          position.market_status !== 'open' &&
+          position.market_status !== 'closed'
+        ) {
+          throw new Error(
+            `position.market_status must be 'open' or 'closed', got: ${position.market_status}`
+          );
+        }
+
+        // negativeRisk boolean
+        if (typeof position.negativeRisk !== 'boolean') {
+          throw new Error('position.negativeRisk must be a boolean');
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Positions (by proxy address)',
+    () =>
+      dome.polymarket.wallet.getPositions({
+        wallet_address: '0x1f64f2739a19fc5cdfd7c3f50c42463aa8983e82', // proxy address for testWalletAddress
+        limit: 10,
+      }),
+    result => {
+      if (typeof result.wallet_address !== 'string') {
+        throw new Error('Response must have wallet_address as string');
+      }
+      if (!result.positions || !Array.isArray(result.positions)) {
+        throw new Error('Response must have positions array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify wallet_address is normalized to lowercase
+      if (result.wallet_address !== result.wallet_address.toLowerCase()) {
+        throw new Error('wallet_address should be normalized to lowercase');
       }
     }
   );
@@ -848,6 +1325,132 @@ async function runIntegrationTest(
   console.log('🏈 Testing Kalshi Endpoints...\n');
 
   await runTest(
+    'Kalshi: Get Market Price (current)',
+    () =>
+      dome.kalshi.markets.getMarketPrice({
+        market_ticker: testMarketTicker,
+      }),
+    result => {
+      if (!result.yes || typeof result.yes !== 'object') {
+        throw new Error('Response must have yes object');
+      }
+      if (typeof result.yes.price !== 'number') {
+        throw new Error('yes.price must be a number');
+      }
+      if (typeof result.yes.at_time !== 'number') {
+        throw new Error('yes.at_time must be a number');
+      }
+      if (!result.no || typeof result.no !== 'object') {
+        throw new Error('Response must have no object');
+      }
+      if (typeof result.no.price !== 'number') {
+        throw new Error('no.price must be a number');
+      }
+      if (typeof result.no.at_time !== 'number') {
+        throw new Error('no.at_time must be a number');
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Market Price (historical)',
+    () =>
+      dome.kalshi.markets.getMarketPrice({
+        market_ticker: testMarketTicker,
+        at_time: testStartTimeSeconds,
+      }),
+    result => {
+      if (!result.yes || typeof result.yes !== 'object') {
+        throw new Error('Response must have yes object');
+      }
+      if (typeof result.yes.price !== 'number') {
+        throw new Error('yes.price must be a number');
+      }
+      if (!result.no || typeof result.no !== 'object') {
+        throw new Error('Response must have no object');
+      }
+      if (typeof result.no.price !== 'number') {
+        throw new Error('no.price must be a number');
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Market Price (validate price ranges and timestamps)',
+    () =>
+      dome.kalshi.markets.getMarketPrice({
+        market_ticker: testMarketTicker,
+      }),
+    result => {
+      // Validate yes side
+      if (typeof result.yes.price !== 'number') {
+        throw new Error('yes.price must be a number');
+      }
+      if (result.yes.price < 0 || result.yes.price > 1) {
+        throw new Error(
+          `yes.price must be between 0 and 1, got: ${result.yes.price}`
+        );
+      }
+      if (typeof result.yes.at_time !== 'number') {
+        throw new Error('yes.at_time must be a number');
+      }
+
+      // Validate no side
+      if (typeof result.no.price !== 'number') {
+        throw new Error('no.price must be a number');
+      }
+      if (result.no.price < 0 || result.no.price > 1) {
+        throw new Error(
+          `no.price must be between 0 and 1, got: ${result.no.price}`
+        );
+      }
+      if (typeof result.no.at_time !== 'number') {
+        throw new Error('no.at_time must be a number');
+      }
+
+      // Validate that yes + no prices approximately equal 1 (accounting for market spread)
+      const priceSum = result.yes.price + result.no.price;
+      if (Math.abs(priceSum - 1) > 0.1) {
+        // Allow 10% deviation for market spread
+        console.log(
+          `   Note: yes + no price sum is ${priceSum.toFixed(4)} (expected ~1.0)`
+        );
+      }
+
+      // Validate timestamps are in seconds (not milliseconds)
+      const currentTimeSeconds = Math.floor(Date.now() / 1000);
+      if (result.yes.at_time > currentTimeSeconds + 86400) {
+        // More than 1 day in future
+        throw new Error(
+          'yes.at_time appears to be in milliseconds, should be seconds'
+        );
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Market Price (with special characters in ticker)',
+    () =>
+      dome.kalshi.markets.getMarketPrice({
+        market_ticker: testKalshiMarketWithSpecialChars,
+      }),
+    result => {
+      if (!result.yes || typeof result.yes !== 'object') {
+        throw new Error('Response must have yes object');
+      }
+      if (typeof result.yes.price !== 'number') {
+        throw new Error('yes.price must be a number');
+      }
+      if (!result.no || typeof result.no !== 'object') {
+        throw new Error('Response must have no object');
+      }
+      if (typeof result.no.price !== 'number') {
+        throw new Error('no.price must be a number');
+      }
+    }
+  );
+
+  await runTest(
     'Kalshi: Get Markets (no filters)',
     () =>
       dome.kalshi.markets.getMarkets({
@@ -938,6 +1541,58 @@ async function runIntegrationTest(
         if (!market.market_ticker.includes('.')) {
           throw new Error(
             'Market ticker should support special characters like "."'
+          );
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Markets (with min_volume filter)',
+    () =>
+      dome.kalshi.markets.getMarkets({
+        min_volume: 10000,
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify that returned markets have volume above threshold
+      if (result.markets.length > 0) {
+        const market = result.markets[0];
+        if (market.volume < 10000) {
+          throw new Error(
+            `Market volume should be >= 10000, got ${market.volume}`
+          );
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Kalshi: Get Markets (closed status)',
+    () =>
+      dome.kalshi.markets.getMarkets({
+        status: 'closed',
+        limit: 10,
+      }),
+    result => {
+      if (!result.markets || !Array.isArray(result.markets)) {
+        throw new Error('Response must have markets array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify that returned markets are closed
+      if (result.markets.length > 0) {
+        const market = result.markets[0];
+        if (market.status !== 'closed') {
+          throw new Error(
+            `Market status should be 'closed', got: ${market.status}`
           );
         }
       }

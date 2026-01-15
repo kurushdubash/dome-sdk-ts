@@ -115,6 +115,9 @@ export interface WalletResponse {
   eoa: string;
   proxy: string;
   wallet_type: string;
+  handle?: string | null;
+  pseudonym?: string | null;
+  image?: string | null;
   wallet_metrics?: WalletMetrics;
 }
 
@@ -336,6 +339,68 @@ export interface GetActivityParams {
   condition_id?: string;
   limit?: number;
   offset?: number;
+}
+
+// ===== Positions Types =====
+export interface WinningOutcome {
+  id: string;
+  label: string;
+}
+
+export interface Position {
+  wallet: string;
+  token_id: string;
+  condition_id: string;
+  title: string;
+  shares: number;
+  shares_normalized: number;
+  redeemable: boolean;
+  market_slug: string;
+  event_slug: string;
+  image: string;
+  label: string;
+  winning_outcome: WinningOutcome | null;
+  start_time: number;
+  end_time: number;
+  completed_time: number | null;
+  close_time: number | null;
+  game_start_time: string | null;
+  market_status: 'open' | 'closed';
+  negativeRisk: boolean;
+}
+
+export interface PositionsPagination {
+  has_more: boolean;
+  limit: number;
+  pagination_key?: string;
+}
+
+export interface PositionsResponse {
+  wallet_address: string;
+  positions: Position[];
+  pagination: PositionsPagination;
+}
+
+export interface GetPositionsParams {
+  wallet_address: string;
+  limit?: number;
+  pagination_key?: string;
+}
+
+// ===== Kalshi Market Price Types =====
+export interface KalshiSidePrice {
+  price: number;
+  at_time: number;
+}
+
+export interface KalshiMarketPriceResponse {
+  yes: KalshiSidePrice;
+  no: KalshiSidePrice;
+}
+
+export interface GetKalshiMarketPriceParams {
+  market_ticker: string;
+  at_time?: number;
 }
 
 // ===== Kalshi Markets Types =====
