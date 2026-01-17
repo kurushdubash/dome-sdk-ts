@@ -54,5 +54,8 @@ export * from './router/index.js';
 // Re-export utility helpers
 export * from './utils/privy.js';
 
+// Re-export escrow module
+export * as escrow from './escrow/index.js';
+
 // Default export
 export default DomeClient;

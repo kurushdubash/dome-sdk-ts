@@ -1338,6 +1338,164 @@ User Wallet → RouterSigner → Dome Router → Polymarket CLOB
 - Your backend handles exchange-specific complexity
 - Easy to add more exchanges in the future
 
+## Fee Escrow
+
+The SDK includes support for Dome's fee escrow system, which enables secure fee collection for prediction market orders. The escrow module provides EIP-712 signed fee authorizations that are verified on-chain.
+
+### PolymarketRouterWithEscrow
+
+For automatic fee handling, use `PolymarketRouterWithEscrow` which extends the standard router:
+
+```typescript
+import { PolymarketRouterWithEscrow, escrow } from '@dome-api/sdk';
+
+const router = new PolymarketRouterWithEscrow({
+  chainId: 137,
+  privy: {
+    appId: process.env.PRIVY_APP_ID!,
+    appSecret: process.env.PRIVY_APP_SECRET!,
+    authorizationKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+  },
+  escrow: {
+    feeBps: 25n, // 0.25% fee
+    escrowAddress: escrow.ESCROW_CONTRACT_POLYGON,
+  },
+});
+
+// Place order with automatic fee authorization
+const result = await router.placeOrderWithEscrow(
+  {
+    userId: user.id,
+    marketId: 'token-id-here',
+    side: 'buy',
+    size: 100, // $100 USDC
+    price: 0.65,
+    privyWalletId: user.privyWalletId,
+    walletAddress: user.walletAddress,
+  },
+  credentials
+);
+
+// Result includes signed fee authorization
+console.log(result.feeAuth); // { orderId, payer, feeAmount, deadline, signature }
+```
+
+### Direct Escrow Module Usage
+
+For more control, use the escrow module directly:
+
+```typescript
+import { escrow } from '@dome-api/sdk';
+
+// Generate deterministic order ID
+const orderId = escrow.generateOrderId({
+  chainId: 137,
+  userAddress: '0x...',
+  marketId: 'market-token-id',
+  side: 'buy',
+  size: escrow.parseUsdc(100), // $100
+  price: 0.65,
+  timestamp: Date.now(),
+});
+
+// Create fee authorization
+const feeAmount = escrow.calculateFee(escrow.parseUsdc(100), 25n); // 0.25% of $100
+const feeAuth = escrow.createFeeAuthorization(orderId, payerAddress, feeAmount);
+
+// Sign with ethers wallet
+const signedAuth = await escrow.signFeeAuthorization(
+  wallet,
+  escrow.ESCROW_CONTRACT_POLYGON,
+  feeAuth,
+  137 // chainId
+);
+
+// Or sign with RouterSigner (Privy, MetaMask, etc.)
+const signedAuth = await escrow.signFeeAuthorizationWithSigner(
+  signer,
+  escrow.ESCROW_CONTRACT_POLYGON,
+  feeAuth,
+  137
+);
+```
+
+### Utility Functions
+
+```typescript
+import { escrow } from '@dome-api/sdk';
+
+// USDC formatting (6 decimals)
+const amount = escrow.parseUsdc(100); // 100000000n ($100)
+const formatted = escrow.formatUsdc(amount); // "100.00"
+
+// Fee calculation
+const fee = escrow.calculateFee(escrow.parseUsdc(100), 25n); // 0.25% = $0.25
+console.log(escrow.formatUsdc(fee)); // "0.25"
+
+// BPS formatting
+console.log(escrow.formatBps(25n)); // "0.25%"
+
+// Verify order ID
+const isValid = escrow.verifyOrderId(orderId, orderParams);
+```
+
+### Constants
+
+```typescript
+import { escrow } from '@dome-api/sdk';
+
+// Polygon contract addresses
+escrow.ESCROW_CONTRACT_POLYGON; // Fee escrow contract
+escrow.USDC_POLYGON; // USDC token address
+```
+
+### Wallet Types: EOA vs SAFE
+
+The escrow system supports two wallet types. The key difference is **who signs** vs **who pays**.
+
+**EOA (Externally Owned Account)**
+
+Standard wallet where the same address signs and pays:
+
+```typescript
+// EOA: Same address signs and pays
+const signature = await userWallet.signTypedData(domain, types, {
+  orderId,
+  payer: userWallet.address, // EOA is the payer
+  feeAmount,
+  deadline,
+});
+
+// Signature verification: ECDSA (ecrecover)
+// Contract checks: recovered_signer == payer
+```
+
+**SAFE (Smart Contract Wallet)**
+
+Multi-sig wallet where an EOA owner signs, but the SAFE contract pays:
+
+```typescript
+// SAFE: EOA owner signs, Safe pays
+const signature = await safeOwnerWallet.signTypedData(domain, types, {
+  orderId,
+  payer: safeContractAddress, // SAFE is the payer (not the signer!)
+  feeAmount,
+  deadline,
+});
+
+// Signature verification: EIP-1271
+// Contract calls: Safe.isValidSignature(hash, signature)
+// Safe validates that the EOA owner is an authorized signer
+```
+
+| Aspect | EOA | SAFE |
+|--------|-----|------|
+| `payer` parameter | User's EOA address | SAFE contract address |
+| Who signs | EOA (same as payer) | EOA owner of the SAFE |
+| Who holds USDC | EOA | SAFE contract |
+| Signature verification | ECDSA | EIP-1271 |
+| USDC approval from | EOA | SAFE (via Safe tx) |
+
 ## Error Handling
 
 The SDK provides comprehensive error handling:

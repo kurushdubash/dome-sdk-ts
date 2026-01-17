@@ -865,6 +865,17 @@ export interface PolymarketCredentials {
 }
 
 /**
+ * Signed fee authorization for escrow
+ */
+export interface SignedFeeAuthorization {
+  orderId: string;
+  payer: string;
+  feeAmount: string; // String for JSON serialization
+  deadline: string; // String for JSON serialization
+  signature: string;
+}
+
+/**
  * Order type for Polymarket CLOB
  */
 export type PolymarketOrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK';
