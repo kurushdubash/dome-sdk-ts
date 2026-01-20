@@ -159,11 +159,11 @@ export class MarketEndpoints extends BaseClient {
     if (params.limit !== undefined) {
       queryParams.limit = params.limit;
     }
-    if (params.offset !== undefined) {
-      queryParams.offset = params.offset;
-    }
+    // Prefer pagination_key (cursor-based) over offset for pagination
     if (params.pagination_key !== undefined) {
       queryParams.pagination_key = params.pagination_key;
+    } else if (params.offset !== undefined) {
+      queryParams.offset = params.offset;
     }
     if (params.start_time !== undefined) {
       queryParams.start_time = params.start_time;

@@ -77,11 +77,11 @@ export class KalshiEndpoints extends BaseClient {
     if (params.limit !== undefined) {
       queryParams.limit = params.limit;
     }
-    if (params.offset !== undefined) {
-      queryParams.offset = params.offset;
-    }
+    // Prefer pagination_key (cursor-based) over offset for pagination
     if (params.pagination_key !== undefined) {
       queryParams.pagination_key = params.pagination_key;
+    } else if (params.offset !== undefined) {
+      queryParams.offset = params.offset;
     }
 
     return this.makeRequest<KalshiMarketsResponse>(
@@ -166,11 +166,11 @@ export class KalshiEndpoints extends BaseClient {
     if (limit !== undefined) {
       queryParams.limit = limit;
     }
-    if (offset !== undefined) {
-      queryParams.offset = offset;
-    }
+    // Prefer pagination_key (cursor-based) over offset for pagination
     if (pagination_key !== undefined) {
       queryParams.pagination_key = pagination_key;
+    } else if (offset !== undefined) {
+      queryParams.offset = offset;
     }
 
     return this.makeRequest<KalshiTradesResponse>(

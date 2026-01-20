@@ -36,9 +36,12 @@ export class OrdersEndpoints extends BaseClient {
       queryParams.start_time = params.start_time;
     if (params.end_time !== undefined) queryParams.end_time = params.end_time;
     if (params.limit !== undefined) queryParams.limit = params.limit;
-    if (params.offset !== undefined) queryParams.offset = params.offset;
-    if (params.pagination_key !== undefined)
+    // Prefer pagination_key (cursor-based) over offset for pagination
+    if (params.pagination_key !== undefined) {
       queryParams.pagination_key = params.pagination_key;
+    } else if (params.offset !== undefined) {
+      queryParams.offset = params.offset;
+    }
     if (params.user) queryParams.user = params.user;
 
     return this.makeRequest<OrdersResponse>(
@@ -93,11 +96,11 @@ export class OrdersEndpoints extends BaseClient {
     if (limit !== undefined) {
       queryParams.limit = limit;
     }
-    if (offset !== undefined) {
-      queryParams.offset = offset;
-    }
+    // Prefer pagination_key (cursor-based) over offset for pagination
     if (pagination_key !== undefined) {
       queryParams.pagination_key = pagination_key;
+    } else if (offset !== undefined) {
+      queryParams.offset = offset;
     }
 
     return this.makeRequest<ActivityResponse>(
