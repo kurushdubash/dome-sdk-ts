@@ -149,9 +149,10 @@ export interface Order {
 
 export interface Pagination {
   limit: number;
-  offset: number;
+  offset?: number; // Deprecated - use pagination_key instead
   total: number;
   has_more: boolean;
+  pagination_key?: string;
 }
 
 export interface OrdersResponse {
@@ -166,7 +167,8 @@ export interface GetOrdersParams {
   start_time?: number;
   end_time?: number;
   limit?: number;
-  offset?: number;
+  offset?: number; // Deprecated - use pagination_key instead
+  pagination_key?: string;
   user?: string;
 }
 
@@ -294,13 +296,54 @@ export interface GetMarketsParams {
   market_slug?: string[];
   event_slug?: string[];
   condition_id?: string[];
+  token_id?: string[];
   tags?: string[];
   status?: 'open' | 'closed';
   min_volume?: number;
   limit?: number;
-  offset?: number;
+  offset?: number; // Deprecated - use pagination_key instead
+  pagination_key?: string;
   start_time?: number;
   end_time?: number;
+}
+
+// ===== Events Types =====
+export interface EventInfo {
+  event_slug: string;
+  title: string;
+  subtitle: string | null;
+  status: 'open' | 'closed';
+  start_time: number;
+  end_time: number;
+  volume_fiat_amount: number;
+  settlement_sources: string | null;
+  rules_url: string | null;
+  image: string | null;
+  tags: string[];
+  market_count: number;
+  markets?: PolymarketMarketInfo[];
+}
+
+export interface EventsResponse {
+  events: EventInfo[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+    has_more: boolean;
+  };
+}
+
+export interface GetEventsParams {
+  event_slug?: string;
+  tags?: string[];
+  status?: 'open' | 'closed';
+  include_markets?: boolean;
+  start_time?: number;
+  end_time?: number;
+  game_start_time?: number;
+  limit?: number;
+  offset?: number;
 }
 
 // ===== Activity Types =====
@@ -321,9 +364,9 @@ export interface Activity {
 
 export interface ActivityPagination {
   limit: number;
-  offset: number;
   count: number;
   has_more: boolean;
+  pagination_key?: string;
 }
 
 export interface ActivityResponse {
@@ -332,13 +375,14 @@ export interface ActivityResponse {
 }
 
 export interface GetActivityParams {
-  user: string;
+  user?: string;
   start_time?: number;
   end_time?: number;
   market_slug?: string;
   condition_id?: string;
   limit?: number;
-  offset?: number;
+  offset?: number; // Deprecated - use pagination_key instead
+  pagination_key?: string;
 }
 
 // ===== Positions Types =====
@@ -434,7 +478,8 @@ export interface GetKalshiMarketsParams {
   status?: 'open' | 'closed';
   min_volume?: number;
   limit?: number;
-  offset?: number;
+  offset?: number; // Deprecated - use pagination_key instead
+  pagination_key?: string;
 }
 
 // ===== Kalshi Orderbooks Types =====
@@ -454,6 +499,7 @@ export interface KalshiOrderbooksPagination {
   limit: number;
   count: number;
   has_more: boolean;
+  paginationKey?: string; // Note: camelCase for Kalshi
 }
 
 export interface KalshiOrderbooksResponse {
@@ -464,9 +510,10 @@ export interface KalshiOrderbooksResponse {
 export interface GetKalshiOrderbooksParams {
   /** The Kalshi market ticker. Can contain special characters like ".", "/", ")", "(" */
   ticker: string;
-  start_time: number; // milliseconds
-  end_time: number; // milliseconds
+  start_time?: number; // milliseconds
+  end_time?: number; // milliseconds
   limit?: number;
+  paginationKey?: string; // Note: camelCase for Kalshi
 }
 
 // ===== Crypto Prices Types =====
@@ -523,7 +570,8 @@ export interface GetKalshiTradesParams {
   start_time?: number;
   end_time?: number;
   limit?: number;
-  offset?: number;
+  offset?: number; // Deprecated - use pagination_key instead
+  pagination_key?: string;
 }
 
 // ===== HTTP Client Types =====

@@ -24,7 +24,7 @@ export class OrdersEndpoints extends BaseClient {
    * @returns Promise resolving to orders data with pagination
    */
   async getOrders(
-    params: GetOrdersParams,
+    params: GetOrdersParams = {},
     options?: RequestConfig
   ): Promise<OrdersResponse> {
     const queryParams: Record<string, any> = {};
@@ -37,6 +37,8 @@ export class OrdersEndpoints extends BaseClient {
     if (params.end_time !== undefined) queryParams.end_time = params.end_time;
     if (params.limit !== undefined) queryParams.limit = params.limit;
     if (params.offset !== undefined) queryParams.offset = params.offset;
+    if (params.pagination_key !== undefined)
+      queryParams.pagination_key = params.pagination_key;
     if (params.user) queryParams.user = params.user;
 
     return this.makeRequest<OrdersResponse>(
@@ -50,7 +52,7 @@ export class OrdersEndpoints extends BaseClient {
   /**
    * Get Activity
    *
-   * Fetches activity data for a specific user with optional filtering by market,
+   * Fetches activity data with optional filtering by user, market,
    * condition, and time range. Returns trading activity including MERGES, SPLITS, and REDEEMS.
    *
    * @param params - Parameters for the activity request
@@ -58,7 +60,7 @@ export class OrdersEndpoints extends BaseClient {
    * @returns Promise resolving to activity data with pagination
    */
   async getActivity(
-    params: GetActivityParams,
+    params: GetActivityParams = {},
     options?: RequestConfig
   ): Promise<ActivityResponse> {
     const {
@@ -69,11 +71,13 @@ export class OrdersEndpoints extends BaseClient {
       condition_id,
       limit,
       offset,
+      pagination_key,
     } = params;
-    const queryParams: Record<string, any> = {
-      user,
-    };
+    const queryParams: Record<string, any> = {};
 
+    if (user !== undefined) {
+      queryParams.user = user;
+    }
     if (start_time !== undefined) {
       queryParams.start_time = start_time;
     }
@@ -91,6 +95,9 @@ export class OrdersEndpoints extends BaseClient {
     }
     if (offset !== undefined) {
       queryParams.offset = offset;
+    }
+    if (pagination_key !== undefined) {
+      queryParams.pagination_key = pagination_key;
     }
 
     return this.makeRequest<ActivityResponse>(

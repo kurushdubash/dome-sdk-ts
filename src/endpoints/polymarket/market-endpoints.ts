@@ -8,6 +8,8 @@ import {
   GetPolymarketOrderbooksParams,
   MarketsResponse,
   GetMarketsParams,
+  EventsResponse,
+  GetEventsParams,
   RequestConfig,
 } from '../../types.js';
 
@@ -119,7 +121,7 @@ export class MarketEndpoints extends BaseClient {
    * Get Markets
    *
    * Fetches market data with optional filtering and search functionality.
-   * Supports filtering by market slug, event slug, condition ID, or tags.
+   * Supports filtering by market slug, event slug, condition ID, token ID, or tags.
    * Returns markets ordered by volume (most popular first) when filters are applied,
    * or by start_time (most recent first) when no filters are provided.
    *
@@ -128,7 +130,7 @@ export class MarketEndpoints extends BaseClient {
    * @returns Promise resolving to markets data with pagination
    */
   async getMarkets(
-    params: GetMarketsParams,
+    params: GetMarketsParams = {},
     options?: RequestConfig
   ): Promise<MarketsResponse> {
     const queryParams: Record<string, any> = {};
@@ -141,6 +143,9 @@ export class MarketEndpoints extends BaseClient {
     }
     if (params.condition_id) {
       queryParams.condition_id = params.condition_id;
+    }
+    if (params.token_id) {
+      queryParams.token_id = params.token_id;
     }
     if (params.tags) {
       queryParams.tags = params.tags;
@@ -157,6 +162,9 @@ export class MarketEndpoints extends BaseClient {
     if (params.offset !== undefined) {
       queryParams.offset = params.offset;
     }
+    if (params.pagination_key !== undefined) {
+      queryParams.pagination_key = params.pagination_key;
+    }
     if (params.start_time !== undefined) {
       queryParams.start_time = params.start_time;
     }
@@ -167,6 +175,59 @@ export class MarketEndpoints extends BaseClient {
     return this.makeRequest<MarketsResponse>(
       'GET',
       '/polymarket/markets',
+      queryParams,
+      options
+    );
+  }
+
+  /**
+   * Get Events
+   *
+   * Fetches events (groups of related markets) with optional filtering by event_slug,
+   * tags/categories and status. Events aggregate multiple markets under a single topic.
+   * Returns events ordered by total volume (most popular first).
+   *
+   * @param params - Parameters for the events request
+   * @param options - Optional request configuration
+   * @returns Promise resolving to events data with pagination
+   */
+  async getEvents(
+    params: GetEventsParams = {},
+    options?: RequestConfig
+  ): Promise<EventsResponse> {
+    const queryParams: Record<string, any> = {};
+
+    if (params.event_slug !== undefined) {
+      queryParams.event_slug = params.event_slug;
+    }
+    if (params.tags) {
+      queryParams.tags = params.tags;
+    }
+    if (params.status !== undefined) {
+      queryParams.status = params.status;
+    }
+    if (params.include_markets !== undefined) {
+      queryParams.include_markets = String(params.include_markets);
+    }
+    if (params.start_time !== undefined) {
+      queryParams.start_time = params.start_time;
+    }
+    if (params.end_time !== undefined) {
+      queryParams.end_time = params.end_time;
+    }
+    if (params.game_start_time !== undefined) {
+      queryParams.game_start_time = params.game_start_time;
+    }
+    if (params.limit !== undefined) {
+      queryParams.limit = params.limit;
+    }
+    if (params.offset !== undefined) {
+      queryParams.offset = params.offset;
+    }
+
+    return this.makeRequest<EventsResponse>(
+      'GET',
+      '/polymarket/events',
       queryParams,
       options
     );
