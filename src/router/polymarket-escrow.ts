@@ -14,6 +14,7 @@
  * 4. The Dome server then pulls the fee to escrow before placing the order
  */
 
+import * as crypto from 'crypto';
 import { ethers, Wallet } from 'ethers';
 import { PolymarketRouter } from './polymarket.js';
 import {
