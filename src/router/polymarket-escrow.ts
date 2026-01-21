@@ -14,6 +14,7 @@
  * 4. The Dome server then pulls the fee to escrow before placing the order
  */
 
+import * as crypto from 'crypto';
 import { ethers, Wallet } from 'ethers';
 import { PolymarketRouter } from './polymarket.js';
 import {
@@ -166,9 +167,7 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
       payerAddress =
         funderAddress || this.getSafeAddress(userId) || signerAddress;
       if (!funderAddress && !this.getSafeAddress(userId)) {
-        throw new Error(
-          'funderAddress is required for Safe wallet orders.'
-        );
+        throw new Error('funderAddress is required for Safe wallet orders.');
       }
     } else {
       payerAddress = signerAddress;
@@ -211,15 +210,17 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
     const signedOrder = await this.createSignedOrder(params, creds);
 
     // Build request with fee auth
-    const clientOrderId =
-      crypto.randomUUID?.() ||
-      `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // clientOrderId must be a valid UUID per Dome API requirements
+    const clientOrderId = crypto.randomUUID();
 
     const request: ServerPlaceOrderRequest = {
       jsonrpc: '2.0',
       method: 'placeOrder',
       id: clientOrderId,
       params: {
+        // Required for escrow: identify payer and signer
+        payerAddress,
+        signerAddress,
         signedOrder,
         orderType,
         credentials: {
@@ -232,7 +233,7 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
           orderId: signedFeeAuth.orderId,
           payer: signedFeeAuth.payer,
           feeAmount: signedFeeAuth.feeAmount.toString(),
-          deadline: signedFeeAuth.deadline.toString(),
+          deadline: Number(signedFeeAuth.deadline), // Must be number, not string
           signature: signedFeeAuth.signature,
         },
         ...(affiliate !== ethers.constants.AddressZero && { affiliate }),
@@ -300,7 +301,10 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
    */
   calculateOrderFee(size: number, price: number, feeBps?: number): bigint {
     const orderSizeUsdc = parseUsdc(size * price);
-    return calculateFee(orderSizeUsdc, BigInt(feeBps ?? this.escrowConfig.feeBps));
+    return calculateFee(
+      orderSizeUsdc,
+      BigInt(feeBps ?? this.escrowConfig.feeBps)
+    );
   }
 
   // Protected helper methods that need to be accessible
@@ -315,7 +319,10 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
     const { signer, privyWalletId, walletAddress } = params;
     if (signer) return signer;
     if (privyWalletId && walletAddress) {
-      return (this as any).createPrivySignerFromWallet(privyWalletId, walletAddress);
+      return (this as any).createPrivySignerFromWallet(
+        privyWalletId,
+        walletAddress
+      );
     }
     return undefined;
   }
@@ -357,7 +364,8 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
         return await actualSigner.signTypedData({
           domain,
           types,
-          primaryType: Object.keys(types).find(key => key !== 'EIP712Domain') || '',
+          primaryType:
+            Object.keys(types).find(key => key !== 'EIP712Domain') || '',
           message: value,
         });
       },

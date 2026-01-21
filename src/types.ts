@@ -881,6 +881,22 @@ export interface SignedFeeAuthorization {
 export type PolymarketOrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK';
 
 /**
+ * Fee authorization for escrow (included in order request)
+ */
+export interface FeeAuthorizationParams {
+  /** Unique order ID (bytes32 hex string) */
+  orderId: string;
+  /** Address of the fee payer */
+  payer: string;
+  /** Fee amount in USDC (uint256 as string) */
+  feeAmount: string;
+  /** Deadline timestamp (unix seconds, must be number not string) */
+  deadline: number;
+  /** EIP-712 signature (hex string) */
+  signature: string;
+}
+
+/**
  * Request to place an order via Dome server
  */
 export interface ServerPlaceOrderRequest {
@@ -888,10 +904,19 @@ export interface ServerPlaceOrderRequest {
   method: 'placeOrder';
   id: string;
   params: {
+    /** Address of the wallet paying the fee (EOA or SAFE) - required when using escrow */
+    payerAddress?: string;
+    /** Address of the EOA that signed the fee authorization - required when using escrow */
+    signerAddress?: string;
     signedOrder: SignedPolymarketOrder;
     orderType?: PolymarketOrderType;
     credentials: PolymarketCredentials;
+    /** Must be a valid UUID */
     clientOrderId: string;
+    /** Fee authorization for escrow */
+    feeAuth?: FeeAuthorizationParams;
+    /** Affiliate address for fee sharing (optional) */
+    affiliate?: string;
   };
 }
 
@@ -905,6 +930,8 @@ export interface ServerPlaceOrderResult {
   status: 'LIVE' | 'MATCHED' | 'DELAYED';
   orderHash?: string;
   transactionHashes?: string[];
+  /** Transaction hash for the pullFee escrow call (if escrow was used) */
+  pullFeeTxHash?: string;
   metadata: {
     region: string;
     latencyMs: number;
