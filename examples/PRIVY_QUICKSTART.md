@@ -275,6 +275,12 @@ if (!status.allSet) {
 | `insufficient balance`   | Fund wallet with USDC + POL                      |
 | Cloudflare 403           | Use VPN (Polymarket geo-blocks some regions)     |
 
+## Related Guides
+
+- **[Fee Escrow Router](./ESCROW_ROUTER_QUICKSTART.md)** - Automatic fee collection with affiliate revenue sharing
+- **[User Settings API](https://docs.domeapi.io/order-router/user-settings)** - Configure affiliate address server-side via API
+- **[Manual Fee Module](./PRIVY_FEE_MODULE_QUICKSTART.md)** - Fine-grained control over fee authorization
+
 ## Support
 
 - **Docs**: [Privy Authorization Keys](https://docs.privy.io/controls/authorization-keys)

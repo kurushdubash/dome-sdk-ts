@@ -438,6 +438,48 @@ Use automatic approach (recommended) when you want:
 
 ---
 
+## Server-Side Affiliate Configuration
+
+Instead of specifying your affiliate address in code, you can configure it server-side via the Dome API. This persists with your API key and applies to all orders automatically.
+
+**Endpoint:** `POST /v1/polymarket/users/affiliate`
+
+```bash
+curl -X POST https://api.domeapi.io/v1/polymarket/users/affiliate \
+  -H "Authorization: Bearer $DOME_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"affiliateAddress": "0xYourAffiliateWallet"}'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Affiliate address updated successfully"
+}
+```
+
+### Benefits
+
+| Approach                            | Use Case                                  |
+| ----------------------------------- | ----------------------------------------- |
+| **SDK Config** (`escrow.affiliate`) | Quick setup, per-instance control         |
+| **Server-Side API**                 | Persistent config, no code changes needed |
+
+Server-configured addresses take priority over client-provided values. Changes take effect immediately.
+
+### Error Handling
+
+| Code | Cause                                              |
+| ---- | -------------------------------------------------- |
+| 400  | Invalid address format (must be 0x + 40 hex chars) |
+| 404  | API key not found                                  |
+
+For full details, see the [User Settings Documentation](https://docs.domeapi.io/order-router/user-settings).
+
+---
+
 ## Support
 
 - **Technical Integration**: kunal@domeapi.com
