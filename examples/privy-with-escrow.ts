@@ -11,7 +11,6 @@
  * 2. Privy wallet (PRIVY_WALLET_ID, PRIVY_WALLET_ADDRESS, PRIVY_AUTHORIZATION_KEY)
  * 3. Dome API key (DOME_API_KEY)
  * 4. Wallet funded with USDC.e on Polygon
- * 5. USDC approved for escrow contract (run approve-escrow.ts first)
  *
  * Usage:
  *   npx tsx examples/privy-with-escrow.ts
@@ -23,6 +22,7 @@ import {
   PolymarketRouterWithEscrow,
   RouterSigner,
   PolymarketCredentials,
+  approveEscrow,
 } from '../src/index.js';
 
 // =============================================================================
@@ -40,11 +40,13 @@ const CONFIG = {
 };
 
 // Example market for testing
+// Note: Order must generate at least $0.01 fee (min fee)
+// Fee = size * price * 0.25%, so need size * price >= $4
 const TEST_MARKET = {
   tokenId:
     '104173557214744537570424345347209544585775842950109756851652855913015295701992',
   size: 100,
-  price: 0.01,
+  price: 0.05, // $5 order = $0.0125 fee (above $0.01 min)
 };
 
 // =============================================================================
@@ -144,6 +146,32 @@ async function main() {
 
   console.log('Router initialized with fee escrow (0.25%)\n');
 
+  // Approve USDC for escrow and Polymarket contracts
+  console.log('Checking/approving USDC allowances...');
+  try {
+    const approvalResult = await approveEscrow({
+      privyClient: privy,
+      walletId: CONFIG.privyWalletId,
+      walletAddress: CONFIG.privyWalletAddress,
+    });
+
+    if (approvalResult.approved.length > 0) {
+      console.log(`  Approved: ${approvalResult.approved.join(', ')}`);
+      for (const [name, hash] of Object.entries(approvalResult.txHashes)) {
+        console.log(`    ${name}: ${hash}`);
+      }
+    }
+    if (approvalResult.alreadyApproved.length > 0) {
+      console.log(
+        `  Already approved: ${approvalResult.alreadyApproved.join(', ')}`
+      );
+    }
+    console.log('');
+  } catch (error: any) {
+    console.error(`Failed to approve contracts: ${error.message}`);
+    process.exit(1);
+  }
+
   // Link user to Polymarket
   console.log('Linking user to Polymarket...');
   const userId = `privy-escrow-${CONFIG.privyWalletId}`;
@@ -187,12 +215,8 @@ async function main() {
     console.log('Order placed successfully!');
     console.log(JSON.stringify(result, null, 2));
   } catch (error: any) {
-    if (
-      error.message.includes('balance') ||
-      error.message.includes('allowance')
-    ) {
-      console.error('Insufficient balance or allowance.');
-      console.error('Run approve-escrow.ts first to approve contracts.');
+    if (error.message.includes('balance')) {
+      console.error('Insufficient USDC balance.');
     } else {
       console.error(`Order failed: ${error.message}`);
     }

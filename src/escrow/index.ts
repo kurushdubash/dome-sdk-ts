@@ -41,3 +41,14 @@ export {
   USDC_POLYGON,
   ESCROW_CONTRACT_POLYGON,
 } from './utils';
+
+// Approval
+export {
+  approveEscrow,
+  checkAllowances,
+  hasRequiredApprovals,
+  POLYMARKET_CONTRACTS,
+  ALL_CONTRACTS_TO_APPROVE,
+} from './approve';
+
+export type { ApproveEscrowOptions, ApproveEscrowResult } from './approve';
