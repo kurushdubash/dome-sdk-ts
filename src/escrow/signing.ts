@@ -7,7 +7,7 @@
  */
 
 import { ethers, Wallet } from 'ethers';
-import type { FeeAuthorization, SignedFeeAuthorization } from './types';
+import type { FeeAuthorization, SignedFeeAuthorization } from './types.js';
 
 // EIP-712 types for fee authorization
 export const FEE_AUTHORIZATION_TYPES = {

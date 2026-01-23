@@ -15,10 +15,10 @@ export type {
   OrderParams,
   FeeAuthorization,
   SignedFeeAuthorization,
-} from './types';
+} from './types.js';
 
 // Order ID generation
-export { generateOrderId, verifyOrderId } from './order-id';
+export { generateOrderId, verifyOrderId } from './order-id.js';
 
 // Fee authorization signing
 export {
@@ -28,9 +28,9 @@ export {
   signFeeAuthorizationWithSigner,
   verifyFeeAuthorizationSignature,
   FEE_AUTHORIZATION_TYPES,
-} from './signing';
+} from './signing.js';
 
-export type { TypedDataSigner } from './signing';
+export type { TypedDataSigner } from './signing.js';
 
 // Utilities
 export {
@@ -40,7 +40,7 @@ export {
   calculateFee,
   USDC_POLYGON,
   ESCROW_CONTRACT_POLYGON,
-} from './utils';
+} from './utils.js';
 
 // Approval
 export {
@@ -49,6 +49,6 @@ export {
   hasRequiredApprovals,
   POLYMARKET_CONTRACTS,
   ALL_CONTRACTS_TO_APPROVE,
-} from './approve';
+} from './approve.js';
 
-export type { ApproveEscrowOptions, ApproveEscrowResult } from './approve';
+export type { ApproveEscrowOptions, ApproveEscrowResult } from './approve.js';

@@ -8,7 +8,7 @@
  */
 
 import { ethers } from 'ethers';
-import type { OrderParams } from './types';
+import type { OrderParams } from './types.js';
 
 /**
  * Generate a unique orderId using deterministic hash
