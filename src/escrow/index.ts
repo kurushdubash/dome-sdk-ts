@@ -6,6 +6,10 @@
  * - EIP-712 fee authorization creation and signing
  * - Utility functions for USDC formatting
  *
+ * This module supports two contract versions:
+ * - DomeFeeEscrow (v1): Original escrow with single fee type
+ * - DomeFeeEscrow (v2): New escrow with order fees AND performance fees
+ *
  * This module is designed for end-users. Operator-side functionality
  * (pullFee, distribute, refund) is handled by the Dome server.
  */
@@ -20,7 +24,7 @@ export type {
 // Order ID generation
 export { generateOrderId, verifyOrderId } from './order-id.js';
 
-// Fee authorization signing
+// Fee authorization signing (DomeFeeEscrow v1)
 export {
   createEIP712Domain,
   createFeeAuthorization,
@@ -52,3 +56,55 @@ export {
 } from './approve.js';
 
 export type { ApproveEscrowOptions, ApproveEscrowResult } from './approve.js';
+
+// Performance Fee (wins-only model - legacy)
+export {
+  calculatePerformanceFee,
+  verifyPerformanceFeePayment,
+  buildUsdcTransfer,
+  buildPerformanceFeeTransactions,
+} from './performance-fee.js';
+
+export type {
+  FeeConfig,
+  PerformanceFeeSplit,
+  PaymentVerification,
+} from './performance-fee.js';
+
+// ============ DomeFeeEscrow (v2) ============
+
+// DomeFeeEscrow Client
+export { DomeFeeEscrowClient } from './dome-client.js';
+
+// DomeFeeEscrow Types
+export type {
+  OrderFeeAuthorization,
+  PerformanceFeeAuthorization,
+  SignedOrderFeeAuth,
+  SignedPerformanceFeeAuth,
+  EscrowStatus,
+  RemainingEscrow,
+  FeeCalculation,
+  DomeFeeEscrowClientConfig,
+  TypedDataSigner as UnifiedTypedDataSigner,
+} from './dome-client.js';
+
+// DomeFeeEscrow EIP-712 Types
+export {
+  ORDER_FEE_TYPES,
+  PERFORMANCE_FEE_TYPES,
+  createUnifiedEIP712Domain,
+} from './dome-client.js';
+
+// DomeFeeEscrow Constants
+export {
+  DOMAIN_NAME,
+  DOMAIN_VERSION,
+  MIN_ORDER_FEE,
+  MIN_PERFORMANCE_FEE,
+  MAX_FEE_ABSOLUTE,
+  MAX_ORDER_FEE_BPS,
+  MAX_PERFORMANCE_FEE_BPS,
+  ESCROW_TIMEOUT_SECONDS,
+  FeeType,
+} from './dome-client.js';
