@@ -61,6 +61,7 @@ export {
   approveEscrow,
   checkAllowances,
   hasRequiredApprovals,
+  ensureEscrowApproval,
   generateOrderId,
   createFeeAuthorization,
   signFeeAuthorization,
@@ -69,6 +70,8 @@ export {
   parseUsdc,
   calculateFee,
   ESCROW_CONTRACT_POLYGON,
+  ESCROW_CONTRACT_V1_POLYGON,
+  ESCROW_CONTRACT_V2_POLYGON,
   USDC_POLYGON,
   // DomeFeeEscrow v2 exports
   DomeFeeEscrowClient,
