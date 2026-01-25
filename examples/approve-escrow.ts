@@ -31,7 +31,7 @@ const CONFIG = {
 
 // All contracts that need USDC approval
 const CONTRACTS_TO_APPROVE = {
-  'Fee Escrow': '0x989876083eD929BE583b8138e40D469ea3E53a37',
+  'Fee Escrow': '0x93519731c9d45738CD999F8b8E86936cc2a33870',
   'CTF Exchange': '0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E',
   'Neg Risk CTF Exchange': '0xC5d563A36AE78145C45a50134d48A1215220f80a',
   'Neg Risk Adapter': '0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296',

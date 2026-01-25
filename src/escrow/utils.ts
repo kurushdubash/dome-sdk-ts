@@ -7,8 +7,16 @@ import { ethers } from 'ethers';
 // USDC on Polygon
 export const USDC_POLYGON = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
 
-// Default Escrow Contract on Polygon
-export const ESCROW_CONTRACT_POLYGON = '0x989876083eD929BE583b8138e40D469ea3E53a37';
+// V1 Escrow Contract on Polygon (deprecated)
+export const ESCROW_CONTRACT_V1_POLYGON =
+  '0x989876083eD929BE583b8138e40D469ea3E53a37';
+
+// V2 DomeFeeEscrow Contract on Polygon (current)
+export const ESCROW_CONTRACT_V2_POLYGON =
+  '0x93519731c9d45738CD999F8b8E86936cc2a33870';
+
+// Default Escrow Contract on Polygon (V2)
+export const ESCROW_CONTRACT_POLYGON = ESCROW_CONTRACT_V2_POLYGON;
 
 /**
  * Format USDC amount (6 decimals) to human readable

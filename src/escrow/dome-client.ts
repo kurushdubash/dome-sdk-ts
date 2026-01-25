@@ -1,5 +1,5 @@
 /**
- * Unified Fee Escrow Client for Dome SDK
+ * DomeFeeEscrow Client for Dome SDK
  *
  * Provides EIP-712 signing and contract interaction for the DomeFeeEscrow contract.
  * Supports both order fees and performance fees with independent Dome and Affiliate amounts.
@@ -264,7 +264,7 @@ const DEFAULT_DEADLINE_SECONDS = 3600; // 1 hour
 /**
  * Create EIP-712 domain for DomeFeeEscrow contract
  */
-export function createUnifiedEIP712Domain(
+export function createDomeFeeEscrowEIP712Domain(
   contractAddress: string,
   chainId: number
 ): ethers.TypedDataDomain {
@@ -428,7 +428,7 @@ export class DomeFeeEscrowClient {
       deadline,
     };
 
-    const domain = createUnifiedEIP712Domain(
+    const domain = createDomeFeeEscrowEIP712Domain(
       this.contractAddress,
       this.chainId
     );
@@ -492,7 +492,7 @@ export class DomeFeeEscrowClient {
       deadline,
     };
 
-    const domain = createUnifiedEIP712Domain(
+    const domain = createDomeFeeEscrowEIP712Domain(
       this.contractAddress,
       this.chainId
     );
@@ -563,7 +563,7 @@ export class DomeFeeEscrowClient {
       deadline,
     };
 
-    const domain = createUnifiedEIP712Domain(
+    const domain = createDomeFeeEscrowEIP712Domain(
       this.contractAddress,
       this.chainId
     );
@@ -630,7 +630,7 @@ export class DomeFeeEscrowClient {
       deadline,
     };
 
-    const domain = createUnifiedEIP712Domain(
+    const domain = createDomeFeeEscrowEIP712Domain(
       this.contractAddress,
       this.chainId
     );
@@ -916,7 +916,7 @@ export class DomeFeeEscrowClient {
     signedAuth: SignedOrderFeeAuth,
     expectedSigner: string
   ): boolean {
-    const domain = createUnifiedEIP712Domain(
+    const domain = createDomeFeeEscrowEIP712Domain(
       this.contractAddress,
       this.chainId
     );
@@ -954,7 +954,7 @@ export class DomeFeeEscrowClient {
     signedAuth: SignedPerformanceFeeAuth,
     expectedSigner: string
   ): boolean {
-    const domain = createUnifiedEIP712Domain(
+    const domain = createDomeFeeEscrowEIP712Domain(
       this.contractAddress,
       this.chainId
     );

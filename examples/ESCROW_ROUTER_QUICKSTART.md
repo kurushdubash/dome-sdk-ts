@@ -113,7 +113,7 @@ const router = new PolymarketRouterWithEscrow({
     deadlineSeconds: 3600,
 
     // Escrow contract address (default: Polygon mainnet)
-    escrowAddress: '0x989876083eD929BE583b8138e40D469ea3E53a37',
+    escrowAddress: '0x93519731c9d45738CD999F8b8E86936cc2a33870',
 
     // Chain ID (default: 137 = Polygon)
     chainId: 137,
@@ -320,7 +320,7 @@ const escrowConfig = router.getEscrowConfig();
 console.log(escrowConfig);
 // {
 //   feeBps: 25,
-//   escrowAddress: '0x989876083eD929BE583b8138e40D469ea3E53a37',
+//   escrowAddress: '0x93519731c9d45738CD999F8b8E86936cc2a33870',
 //   chainId: 137,
 //   affiliate: '0xYourAffiliateWallet',
 //   deadlineSeconds: 3600,
@@ -354,7 +354,7 @@ Users need to approve the escrow contract to pull USDC for fees. Add this approv
 import { ethers } from 'ethers';
 
 const USDC = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
-const ESCROW = '0x989876083eD929BE583b8138e40D469ea3E53a37';
+const ESCROW = '0x93519731c9d45738CD999F8b8E86936cc2a33870';
 
 async function approveEscrow(privy: PrivyClient, walletId: string) {
   const iface = new ethers.utils.Interface([

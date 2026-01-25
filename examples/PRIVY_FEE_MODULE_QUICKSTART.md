@@ -33,7 +33,7 @@ This guide shows how to manually integrate fee authorization with Privy, giving 
                           │
                           ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  ESCROW CONTRACT (0x989876083eD929BE583b8138e40D469ea3E53a37)    │
+│  ESCROW CONTRACT (0x93519731c9d45738CD999F8b8E86936cc2a33870)    │
 │                                                                  │
 │  • Holds USDC until order fills                                  │
 │  • Distributes 80% to Dome, 20% to affiliate                     │
@@ -398,7 +398,7 @@ Users need to approve the escrow contract to pull USDC for fees. This is a **one
 import { ethers } from 'ethers';
 
 const USDC = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
-const ESCROW = '0x989876083eD929BE583b8138e40D469ea3E53a37';
+const ESCROW = '0x93519731c9d45738CD999F8b8E86936cc2a33870';
 
 async function approveEscrow(privy: PrivyClient, walletId: string) {
   const iface = new ethers.utils.Interface([
@@ -514,7 +514,7 @@ Expected output:
 
 | Contract   | Address                                      | Network |
 | ---------- | -------------------------------------------- | ------- |
-| Fee Escrow | `0x989876083eD929BE583b8138e40D469ea3E53a37` | Polygon |
+| Fee Escrow | `0x93519731c9d45738CD999F8b8E86936cc2a33870` | Polygon |
 | USDC       | `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174` | Polygon |
 
 ---

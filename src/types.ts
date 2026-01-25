@@ -881,7 +881,7 @@ export interface SignedFeeAuthorization {
 export type PolymarketOrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK';
 
 /**
- * Fee authorization for escrow (included in order request)
+ * Fee authorization for escrow V1 (legacy - included in order request)
  */
 export interface FeeAuthorizationParams {
   /** Unique order ID (bytes32 hex string) */
@@ -891,6 +891,26 @@ export interface FeeAuthorizationParams {
   /** Fee amount in USDC (uint256 as string) */
   feeAmount: string;
   /** Deadline timestamp (unix seconds, must be number not string) */
+  deadline: number;
+  /** EIP-712 signature (hex string) */
+  signature: string;
+}
+
+/**
+ * Order fee authorization for escrow V2 (included in order request)
+ */
+export interface OrderFeeAuthorizationParams {
+  /** Unique order ID (bytes32 hex string) */
+  orderId: string;
+  /** Address of the fee payer */
+  payer: string;
+  /** Dome's fee amount in USDC (uint256 as string) */
+  domeAmount: string;
+  /** Affiliate's fee amount in USDC (uint256 as string) */
+  affiliateAmount: string;
+  /** Chain ID for cross-chain replay protection */
+  chainId: number;
+  /** Deadline timestamp (unix seconds) */
   deadline: number;
   /** EIP-712 signature (hex string) */
   signature: string;
@@ -913,8 +933,10 @@ export interface ServerPlaceOrderRequest {
     credentials: PolymarketCredentials;
     /** Must be a valid UUID */
     clientOrderId: string;
-    /** Fee authorization for escrow */
+    /** Fee authorization for escrow V1 (legacy) */
     feeAuth?: FeeAuthorizationParams;
+    /** Order fee authorization for escrow V2 */
+    orderFeeAuth?: OrderFeeAuthorizationParams;
     /** Affiliate address for fee sharing (optional) */
     affiliate?: string;
   };

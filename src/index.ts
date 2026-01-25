@@ -74,7 +74,7 @@ export {
   DomeFeeEscrowClient,
   ORDER_FEE_TYPES,
   PERFORMANCE_FEE_TYPES,
-  createUnifiedEIP712Domain,
+  createDomeFeeEscrowEIP712Domain,
   DOMAIN_NAME,
   DOMAIN_VERSION,
   MIN_ORDER_FEE,

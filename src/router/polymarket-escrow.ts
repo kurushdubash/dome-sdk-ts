@@ -24,15 +24,15 @@ import {
   ServerPlaceOrderRequest,
   ServerPlaceOrderResponse,
   SignedPolymarketOrder,
-  SignedFeeAuthorization,
 } from '../types.js';
 import {
   generateOrderId,
-  createFeeAuthorization,
-  signFeeAuthorizationWithSigner,
   parseUsdc,
   calculateFee,
-  ESCROW_CONTRACT_POLYGON,
+  ESCROW_CONTRACT_V2_POLYGON,
+  ORDER_FEE_TYPES,
+  createDomeFeeEscrowEIP712Domain,
+  MIN_ORDER_FEE,
 } from '../escrow/index.js';
 
 // Dome API endpoint
@@ -85,10 +85,10 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
   constructor(config: PolymarketRouterWithEscrowConfig = {}) {
     super(config);
 
-    // Set escrow defaults
+    // Set escrow defaults (V2 contract)
     this.escrowConfig = {
       feeBps: config.escrow?.feeBps ?? 25, // 0.25%
-      escrowAddress: config.escrow?.escrowAddress ?? ESCROW_CONTRACT_POLYGON,
+      escrowAddress: config.escrow?.escrowAddress ?? ESCROW_CONTRACT_V2_POLYGON,
       chainId: config.escrow?.chainId ?? 137,
       affiliate: config.escrow?.affiliate ?? ethers.constants.AddressZero,
       deadlineSeconds: config.escrow?.deadlineSeconds ?? 3600,
@@ -176,7 +176,27 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
     // Calculate order size in USDC (6 decimals)
     // Size is in shares, price is 0-1, so USDC cost = size * price
     const orderSizeUsdc = parseUsdc(size * price);
-    const feeAmount = calculateFee(orderSizeUsdc, BigInt(feeBps));
+    const totalFee = calculateFee(orderSizeUsdc, BigInt(feeBps));
+
+    // V2: Split fee between dome and affiliate
+    // If affiliate specified: 80% dome, 20% affiliate
+    // Otherwise: 100% dome
+    let domeAmount: bigint;
+    let affiliateAmount: bigint;
+
+    if (affiliate !== ethers.constants.AddressZero) {
+      // 80/20 split
+      affiliateAmount = (totalFee * BigInt(20)) / BigInt(100);
+      domeAmount = totalFee - affiliateAmount;
+    } else {
+      domeAmount = totalFee;
+      affiliateAmount = BigInt(0);
+    }
+
+    // Ensure minimum fee is met
+    if (domeAmount + affiliateAmount < MIN_ORDER_FEE) {
+      domeAmount = MIN_ORDER_FEE;
+    }
 
     // Generate unique orderId
     const timestamp = Date.now();
@@ -190,21 +210,38 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
       timestamp,
     });
 
-    // Create fee authorization
-    const feeAuth = createFeeAuthorization(
-      orderId,
-      payerAddress,
-      feeAmount,
-      this.escrowConfig.deadlineSeconds
-    );
+    // Create V2 order fee authorization
+    const deadline =
+      Math.floor(Date.now() / 1000) + this.escrowConfig.deadlineSeconds;
 
-    // Sign fee authorization
-    const signedFeeAuth = await signFeeAuthorizationWithSigner(
-      actualSigner,
+    const orderFeeAuth = {
+      orderId,
+      payer: payerAddress,
+      domeAmount,
+      affiliateAmount,
+      chainId: this.escrowConfig.chainId,
+      deadline,
+    };
+
+    // Sign V2 fee authorization using EIP-712
+    const domain = createDomeFeeEscrowEIP712Domain(
       this.escrowConfig.escrowAddress,
-      feeAuth,
       this.escrowConfig.chainId
     );
+
+    const signature = await actualSigner.signTypedData({
+      domain,
+      types: ORDER_FEE_TYPES,
+      primaryType: 'OrderFeeAuthorization',
+      message: {
+        orderId: orderFeeAuth.orderId,
+        payer: orderFeeAuth.payer,
+        domeAmount: orderFeeAuth.domeAmount.toString(),
+        affiliateAmount: orderFeeAuth.affiliateAmount.toString(),
+        chainId: orderFeeAuth.chainId,
+        deadline: orderFeeAuth.deadline,
+      },
+    });
 
     // Create signed order using parent's CLOB client logic
     const signedOrder = await this.createSignedOrder(params, creds);
@@ -229,12 +266,14 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
           apiPassphrase: creds.apiPassphrase,
         },
         clientOrderId,
-        feeAuth: {
-          orderId: signedFeeAuth.orderId,
-          payer: signedFeeAuth.payer,
-          feeAmount: signedFeeAuth.feeAmount.toString(),
-          deadline: Number(signedFeeAuth.deadline), // Must be number, not string
-          signature: signedFeeAuth.signature,
+        orderFeeAuth: {
+          orderId: orderFeeAuth.orderId,
+          payer: orderFeeAuth.payer,
+          domeAmount: orderFeeAuth.domeAmount.toString(),
+          affiliateAmount: orderFeeAuth.affiliateAmount.toString(),
+          chainId: orderFeeAuth.chainId,
+          deadline: orderFeeAuth.deadline,
+          signature,
         },
         ...(affiliate !== ethers.constants.AddressZero && { affiliate }),
       },

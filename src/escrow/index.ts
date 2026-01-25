@@ -49,13 +49,22 @@ export {
 // Approval
 export {
   approveEscrow,
+  approveEscrowWithSigner,
+  ensureEscrowApproval,
   checkAllowances,
   hasRequiredApprovals,
   POLYMARKET_CONTRACTS,
   ALL_CONTRACTS_TO_APPROVE,
+  ESCROW_CONTRACT_V1_POLYGON,
+  ESCROW_CONTRACT_V2_POLYGON,
 } from './approve.js';
 
-export type { ApproveEscrowOptions, ApproveEscrowResult } from './approve.js';
+export type {
+  ApproveEscrowOptions,
+  ApproveEscrowResult,
+  ApproveWithSignerOptions,
+  ApproveWithSignerResult,
+} from './approve.js';
 
 // Performance Fee (wins-only model - legacy)
 export {
@@ -93,7 +102,7 @@ export type {
 export {
   ORDER_FEE_TYPES,
   PERFORMANCE_FEE_TYPES,
-  createUnifiedEIP712Domain,
+  createDomeFeeEscrowEIP712Domain,
 } from './dome-client.js';
 
 // DomeFeeEscrow Constants
