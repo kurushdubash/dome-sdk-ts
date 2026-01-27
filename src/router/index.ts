@@ -13,6 +13,7 @@
  */
 
 export { PolymarketRouter } from './polymarket.js';
+export { PolymarketEscrowRouter } from './polymarket-escrow.js';
 export type {
   RouterSigner,
   LinkPolymarketUserParams,
@@ -57,3 +58,39 @@ export {
   DEFAULT_RELAYER_URL,
   DEFAULT_RPC_URL,
 } from '../utils/safe.js';
+
+// Fee escrow router types
+export type {
+  DomeFeeEscrowDomain,
+  FeeEscrowConfig,
+  PolymarketEscrowRouterConfig,
+  SignedFeeAuth,
+  PlaceOrderWithEscrowParams,
+  EscrowData,
+  EscrowStatus,
+  FeeCalculation,
+} from './polymarket-escrow.js';
+
+export { HoldState } from './polymarket-escrow.js';
+
+// Fee escrow utilities
+export {
+  DOME_FEE_ESCROW_POLYGON,
+  DOME_FEE_ESCROW_AMOY,
+  USDC_POLYGON,
+  USDC_AMOY,
+  DEFAULT_DOME_FEE_BPS,
+  MAX_CLIENT_FEE_BPS,
+  DEFAULT_MIN_DOME_FEE,
+  AMOY_CHAIN_ID,
+  FEE_AUTH_TYPES,
+  PERMIT_TYPES,
+  createFeeEscrowDomain,
+  getUsdcPermitDomain,
+  calculateFees,
+  parseUsdc,
+  formatUsdc,
+  generateOrderId,
+  getEscrowAddress,
+  getUsdcAddress,
+} from './polymarket-escrow.js';
