@@ -41,10 +41,8 @@ import {
   CHAIN_ID_AMOY,
   DEFAULT_DOME_FEE_BPS,
   DEFAULT_MIN_DOME_FEE,
-  MAX_CLIENT_FEE_BPS,
   DOMAIN_NAME,
   DOMAIN_VERSION,
-  FEE_AUTH_TYPEHASH,
   HoldState,
   type EscrowData,
   type EscrowStatus,
@@ -68,7 +66,12 @@ export {
   HoldState,
   FEE_AUTH_TYPES,
   PERMIT_TYPES,
+  DEFAULT_DOME_FEE_BPS,
+  DEFAULT_MIN_DOME_FEE,
 };
+
+// Re-export MAX_CLIENT_FEE_BPS from escrow module
+export { MAX_CLIENT_FEE_BPS } from '../escrow/index.js';
 
 export type {
   EscrowData,
@@ -173,7 +176,7 @@ export interface SignedFeeAuth {
   /** Client/affiliate address */
   client: string;
   /** Permit nonce used for EOA signatures (required for EIP-2612 permit) */
-  permitNonce?: number;
+  permitNonce?: string;
 }
 
 /**
@@ -262,14 +265,17 @@ export function calculateFees(
  * Parse USDC amount from number to bigint (6 decimals)
  */
 export function parseUsdc(amount: number): bigint {
-  return escrowParseUsdc(amount);
+  // Round to 6 decimals to avoid IEEE-754 floating-point artifacts
+  // e.g., 7 * 0.1 = 0.7000000000000001 → 0.700000
+  const rounded = Math.round(amount * 1e6) / 1e6;
+  return escrowParseUsdc(rounded);
 }
 
 /**
- * Format USDC amount from bigint to number
+ * Format USDC amount from bigint to decimal string (6 decimals)
  */
-export function formatUsdc(amount: bigint): number {
-  return Number(escrowFormatUsdc(amount));
+export function formatUsdc(amount: bigint): string {
+  return escrowFormatUsdc(amount);
 }
 
 /**
@@ -706,7 +712,7 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
         signature,
         isSmartWallet,
         client: clientAddress,
-        permitNonce: Number(nonce),
+        permitNonce: nonce.toString(),
       };
     }
 
@@ -735,8 +741,6 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
     walletAddress?: string
   ): RouterSigner | undefined {
     if (signer) return signer;
-    // Access parent's privy signer creation if available
-    // This is a simplified version - in production you'd expose this properly
     return undefined;
   }
 
@@ -748,7 +752,6 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
     if (!this.isApiKeyConfigured()) {
       throw new Error('API key not configured');
     }
-    // We know it's configured, so we access it via a workaround
     return (this as any).apiKey;
   }
 

@@ -73,7 +73,7 @@ export type {
 
 export { HoldState } from './polymarket-escrow.js';
 
-// Fee escrow utilities
+// Fee escrow utilities (prefixed to avoid conflicts with escrow module)
 export {
   DOME_FEE_ESCROW_POLYGON,
   DOME_FEE_ESCROW_AMOY,
@@ -87,10 +87,14 @@ export {
   PERMIT_TYPES,
   createFeeEscrowDomain,
   getUsdcPermitDomain,
-  calculateFees,
-  parseUsdc,
-  formatUsdc,
-  generateOrderId,
   getEscrowAddress,
   getUsdcAddress,
+} from './polymarket-escrow.js';
+
+// Re-export fee calculation utilities with router prefix to avoid name collision
+export {
+  calculateFees as routerCalculateFees,
+  parseUsdc as routerParseUsdc,
+  formatUsdc as routerFormatUsdc,
+  generateOrderId as routerGenerateOrderId,
 } from './polymarket-escrow.js';
