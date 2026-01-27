@@ -39,6 +39,8 @@ export {
   DOMAIN_VERSION,
   DEFAULT_DOME_FEE_BPS,
   DEFAULT_MIN_DOME_FEE,
+  DEFAULT_CLIENT_FEE_BPS,
+  DEFAULT_CLIENT_ADDRESS,
   MAX_CLIENT_FEE_BPS,
   USDC_DECIMALS,
   FEE_AUTH_TYPEHASH,
@@ -96,3 +98,21 @@ export type {
   ApprovalResult,
   TransactionSigner,
 } from './approve.js';
+
+// Configuration
+export {
+  ESCROW_CONTRACT_AMOY,
+  USDC_AMOY,
+  DEFAULT_DEADLINE_SECONDS,
+  DEFAULT_RPC_URL_POLYGON,
+  DEFAULT_RPC_URL_AMOY,
+  getEscrowAddress,
+  getUsdcAddress,
+  getDefaultRpcUrl,
+  resolveEscrowConfig,
+} from './config.js';
+
+export type {
+  EscrowConfig,
+  ResolvedEscrowConfig,
+} from './config.js';

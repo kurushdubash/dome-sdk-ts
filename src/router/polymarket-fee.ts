@@ -41,12 +41,17 @@ import {
   CHAIN_ID_AMOY,
   DEFAULT_DOME_FEE_BPS,
   DEFAULT_MIN_DOME_FEE,
+  DEFAULT_CLIENT_FEE_BPS,
+  DEFAULT_CLIENT_ADDRESS,
+  DEFAULT_DEADLINE_SECONDS,
   DOMAIN_NAME,
   DOMAIN_VERSION,
   HoldState,
   type EscrowData,
   type EscrowStatus,
   type FeeCalculation,
+  type EscrowConfig,
+  type ResolvedEscrowConfig,
   calculateFees as escrowCalculateFees,
   parseUsdc as escrowParseUsdc,
   formatUsdc as escrowFormatUsdc,
@@ -56,6 +61,11 @@ import {
   PERMIT_TYPES,
   createPermitDomain,
   getPermitNonce,
+  getEscrowAddress,
+  getUsdcAddress,
+  getDefaultRpcUrl,
+  resolveEscrowConfig,
+  USDC_AMOY,
 } from '../escrow/index.js';
 
 // ============================================================================
@@ -68,6 +78,13 @@ export {
   PERMIT_TYPES,
   DEFAULT_DOME_FEE_BPS,
   DEFAULT_MIN_DOME_FEE,
+  DEFAULT_CLIENT_FEE_BPS,
+  DEFAULT_CLIENT_ADDRESS,
+  DEFAULT_DEADLINE_SECONDS,
+  getEscrowAddress,
+  getUsdcAddress,
+  getDefaultRpcUrl,
+  resolveEscrowConfig,
 };
 
 // Re-export MAX_CLIENT_FEE_BPS from escrow module
@@ -77,6 +94,8 @@ export type {
   EscrowData,
   EscrowStatus,
   FeeCalculation,
+  EscrowConfig,
+  ResolvedEscrowConfig,
 };
 
 // ============================================================================
@@ -86,14 +105,8 @@ export type {
 /** DomeFeeEscrow contract address on Polygon mainnet */
 export const DOME_FEE_ESCROW_POLYGON = ESCROW_CONTRACT_POLYGON;
 
-/** DomeFeeEscrow contract address on Polygon Amoy testnet */
-export const DOME_FEE_ESCROW_AMOY = '0x0000000000000000000000000000000000000000'; // TODO: Deploy and update
-
 /** USDC.e token address on Polygon mainnet (bridged USDC, 6 decimals, EIP-2612 permit supported) */
 export { USDC_POLYGON };
-
-/** USDC token address on Polygon Amoy testnet */
-export const USDC_AMOY = '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582';
 
 /** Polygon chain ID */
 export const POLYGON_CHAIN_ID = CHAIN_ID_POLYGON;
@@ -123,30 +136,10 @@ export interface DomeFeeEscrowDomain {
 // ============================================================================
 
 /**
- * Fee escrow configuration for the router
- */
-export interface FeeEscrowConfig {
-  /** Escrow contract address (defaults to chain-specific address) */
-  escrowAddress?: string;
-  /** Dome fee in basis points (default: 10 = 0.1%) */
-  domeFeeBps?: number;
-  /** Minimum dome fee in USDC smallest units (default: 10000 = $0.01) */
-  minDomeFee?: bigint;
-  /** Client/affiliate fee in basis points (default: 0) */
-  clientFeeBps?: number;
-  /** Client/affiliate address to receive client fee (default: zero address) */
-  clientAddress?: string;
-  /** Deadline for fee authorization in seconds from now (default: 3600 = 1 hour) */
-  deadlineSeconds?: number;
-  /** RPC URL for fetching permit nonce (default: https://polygon-rpc.com) */
-  rpcUrl?: string;
-}
-
-/**
  * Extended router config with escrow settings
  */
 export interface PolymarketEscrowRouterConfig extends PolymarketRouterConfig {
-  escrow?: FeeEscrowConfig;
+  escrow?: EscrowConfig;
 }
 
 /**
@@ -159,10 +152,10 @@ export interface SignedFeeAuth {
   payer: string;
   /** Order size in USDC (6 decimals) - used by contract to calculate fees */
   orderSize: string;
+  /** Dome fee in basis points - used by contract to calculate dome fee */
+  domeFeeBps: number;
   /** Client fee in basis points - used by contract to calculate client fee */
   clientFeeBps: number;
-  /** Total fee amount (dome + client) in string format - V1 format */
-  feeAmount: string;
   /** Dome fee portion */
   domeFee: string;
   /** Client fee portion */
@@ -303,34 +296,6 @@ export function generateOrderId(params: {
   });
 }
 
-/**
- * Get escrow contract address for a chain
- */
-export function getEscrowAddress(chainId: number): string {
-  switch (chainId) {
-    case POLYGON_CHAIN_ID:
-      return DOME_FEE_ESCROW_POLYGON;
-    case AMOY_CHAIN_ID:
-      return DOME_FEE_ESCROW_AMOY;
-    default:
-      throw new Error(`Unsupported chain ID for escrow: ${chainId}`);
-  }
-}
-
-/**
- * Get USDC token address for a chain
- */
-export function getUsdcAddress(chainId: number): string {
-  switch (chainId) {
-    case POLYGON_CHAIN_ID:
-      return USDC_POLYGON;
-    case AMOY_CHAIN_ID:
-      return USDC_AMOY;
-    default:
-      throw new Error(`Unsupported chain ID for USDC: ${chainId}`);
-  }
-}
-
 // ============================================================================
 // Polymarket Escrow Router
 // ============================================================================
@@ -380,9 +345,7 @@ export function getUsdcAddress(chainId: number): string {
  * ```
  */
 export class PolymarketEscrowRouter extends PolymarketRouter {
-  private readonly escrowConfig: Required<Omit<FeeEscrowConfig, 'escrowAddress'>> & {
-    escrowAddress: string;
-  };
+  private readonly escrowConfig: ResolvedEscrowConfig;
   private readonly escrowChainId: number;
   private readonly provider: ethers.providers.Provider;
 
@@ -391,26 +354,12 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
 
     this.escrowChainId = config.chainId || POLYGON_CHAIN_ID;
     
-    // Default RPC URL based on chain
-    const defaultRpcUrl = this.escrowChainId === POLYGON_CHAIN_ID 
-      ? 'https://polygon-rpc.com'
-      : 'https://rpc-amoy.polygon.technology';
+    // Resolve escrow config with defaults
+    this.escrowConfig = resolveEscrowConfig(config.escrow, this.escrowChainId);
     
     this.provider = new ethers.providers.JsonRpcProvider(
-      config.escrow?.rpcUrl || defaultRpcUrl
+      this.escrowConfig.rpcUrl
     );
-
-    // Set escrow defaults (convert bigint constants to number where needed)
-    this.escrowConfig = {
-      escrowAddress:
-        config.escrow?.escrowAddress || getEscrowAddress(this.escrowChainId),
-      domeFeeBps: config.escrow?.domeFeeBps ?? Number(DEFAULT_DOME_FEE_BPS),
-      minDomeFee: config.escrow?.minDomeFee ?? DEFAULT_MIN_DOME_FEE,
-      clientFeeBps: config.escrow?.clientFeeBps ?? 0,
-      clientAddress: config.escrow?.clientAddress ?? '0x0000000000000000000000000000000000000000',
-      deadlineSeconds: config.escrow?.deadlineSeconds ?? 3600,
-      rpcUrl: config.escrow?.rpcUrl || defaultRpcUrl,
-    };
   }
 
   /**
@@ -523,6 +472,7 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
       signer: actualSigner,
       fees,
       orderSize: orderSizeUsdc,
+      domeFeeBps,
       clientFeeBps,
       deadline,
       isSmartWallet,
@@ -614,7 +564,7 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
   /**
    * Get the current escrow configuration
    */
-  getEscrowConfig(): FeeEscrowConfig {
+  getEscrowConfig(): ResolvedEscrowConfig {
     return { ...this.escrowConfig };
   }
 
@@ -649,12 +599,13 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
     signer: RouterSigner;
     fees: FeeCalculation;
     orderSize: bigint;
+    domeFeeBps: number;
     clientFeeBps: number;
     deadline: number;
     isSmartWallet: boolean;
     clientAddress: string;
   }): Promise<SignedFeeAuth> {
-    const { orderId, payer, signer, fees, orderSize, clientFeeBps, deadline, isSmartWallet, clientAddress } = params;
+    const { orderId, payer, signer, fees, orderSize, domeFeeBps, clientFeeBps, deadline, isSmartWallet, clientAddress } = params;
 
     let signature: string;
 
@@ -704,8 +655,8 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
         orderId,
         payer,
         orderSize: orderSize.toString(),
+        domeFeeBps,
         clientFeeBps,
-        feeAmount: fees.totalFee.toString(),
         domeFee: fees.domeFee.toString(),
         clientFee: fees.clientFee.toString(),
         deadline,
@@ -721,8 +672,8 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
       orderId,
       payer,
       orderSize: orderSize.toString(),
+      domeFeeBps,
       clientFeeBps,
-      feeAmount: fees.totalFee.toString(),
       domeFee: fees.domeFee.toString(),
       clientFee: fees.clientFee.toString(),
       deadline,

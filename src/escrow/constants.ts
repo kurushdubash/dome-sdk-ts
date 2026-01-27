@@ -26,6 +26,12 @@ export const DEFAULT_DOME_FEE_BPS = 10n;
 /** Default minimum Dome fee: $0.01 (10000 with 6 decimals) */
 export const DEFAULT_MIN_DOME_FEE = 10_000n;
 
+/** Default client/affiliate fee: 0% (0 basis points) */
+export const DEFAULT_CLIENT_FEE_BPS = 0n;
+
+/** Default client/affiliate address (zero address = no affiliate) */
+export const DEFAULT_CLIENT_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 /** Maximum client fee: 100% (10000 basis points) */
 export const MAX_CLIENT_FEE_BPS = 10_000n;
 
