@@ -54,5 +54,21 @@ export * from './router/index.js';
 // Re-export utility helpers
 export * from './utils/privy.js';
 
+// Re-export escrow module as namespace
+export * as escrow from './escrow/index.js';
+
+export {
+  HoldState,
+  ESCROW_CONTRACT_POLYGON,
+  USDC_POLYGON,
+  generateOrderId,
+  createFeeAuth,
+  signFeeAuth,
+  signFeeAuthWithSigner,
+  parseUsdc,
+  formatUsdc,
+  calculateFees,
+} from './escrow/index.js';
+
 // Default export
 export default DomeClient;
