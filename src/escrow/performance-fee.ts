@@ -4,8 +4,11 @@
  * Provides tools for the "wins-only" fee model where users pay fees
  * only when claiming winning positions.
  *
+ * Uses the v2 independent fee model with separate Dome and Affiliate fees
+ * (not a percentage split of a single total fee).
+ *
  * Flow:
- * 1. User calculates fee based on winnings
+ * 1. User calculates fee based on winnings using independent dome/affiliate rates
  * 2. User sends USDC payments to DOME + affiliate addresses
  * 3. User submits payment proof to DOME API
  * 4. DOME verifies payments and claims position on user's behalf
@@ -17,25 +20,32 @@ import { USDC_POLYGON } from './utils.js';
 // ============ Types ============
 
 /**
- * Fee configuration for a user/affiliate
+ * Fee configuration for a user/affiliate (v2 - independent fees)
+ *
+ * Uses separate fee rates for Dome and Affiliate instead of a split percentage.
  */
 export interface FeeConfig {
   /** Order fee (upfront, on every order) */
   orderFee: {
     enabled: boolean;
-    feeBps: number;
+    /** Dome's order fee rate in basis points (e.g., 20 = 0.20%) */
+    domeFeeBps: number;
+    /** Affiliate's order fee rate in basis points (e.g., 5 = 0.05%) */
+    affiliateFeeBps: number;
     minFeeUsdc: bigint;
   };
   /** Performance fee (on winning claims only) */
   performanceFee: {
     enabled: boolean;
-    feeBps: number;
+    /** Dome's performance fee rate in basis points (e.g., 400 = 4%) */
+    domeFeeBps: number;
+    /** Affiliate's performance fee rate in basis points (e.g., 100 = 1%) */
+    affiliateFeeBps: number;
     minFeeUsdc: bigint;
   };
   /** Affiliate configuration */
   affiliate: {
     address: string;
-    splitBps: number; // e.g., 2000 = 20% to affiliate
   };
   /** DOME treasury address */
   domeAddress: string;
@@ -70,7 +80,85 @@ export interface PaymentVerification {
 // ============ Fee Calculation ============
 
 /**
- * Calculate performance fee split between DOME and affiliate
+ * Calculated order fee breakdown
+ */
+export interface OrderFeeSplit {
+  totalFee: bigint;
+  domeAmount: bigint;
+  affiliateAmount: bigint;
+  domeAddress: string;
+  affiliateAddress: string;
+}
+
+/**
+ * Calculate order fee with independent DOME and affiliate amounts
+ *
+ * Uses the v2 fee model where Dome and Affiliate fees are calculated
+ * independently using their own basis point rates.
+ *
+ * @param orderSize - Order size in USDC (6 decimals)
+ * @param feeConfig - Fee configuration for this user
+ * @returns Fee amounts for DOME and affiliate
+ *
+ * @example
+ * ```typescript
+ * const fees = calculateOrderFee(parseUsdc(100), feeConfig);
+ * // orderSize: $100
+ * // domeFeeBps: 20 (0.20%) = $0.20 to DOME
+ * // affiliateFeeBps: 5 (0.05%) = $0.05 to affiliate
+ * // total: $0.25
+ * ```
+ */
+export function calculateOrderFee(
+  orderSize: bigint,
+  feeConfig: FeeConfig
+): OrderFeeSplit {
+  const { orderFee, affiliate, domeAddress } = feeConfig;
+
+  if (!orderFee.enabled) {
+    return {
+      totalFee: BigInt(0),
+      domeAmount: BigInt(0),
+      affiliateAmount: BigInt(0),
+      domeAddress,
+      affiliateAddress: affiliate.address,
+    };
+  }
+
+  // Calculate independent fees using separate rates
+  let domeAmount = (orderSize * BigInt(orderFee.domeFeeBps)) / BigInt(10000);
+  let affiliateAmount =
+    (orderSize * BigInt(orderFee.affiliateFeeBps)) / BigInt(10000);
+  let totalFee = domeAmount + affiliateAmount;
+
+  // Apply minimum fee with proportional scaling
+  if (totalFee < orderFee.minFeeUsdc && totalFee > BigInt(0)) {
+    const scale = (orderFee.minFeeUsdc * BigInt(10000)) / totalFee;
+    domeAmount = (domeAmount * scale) / BigInt(10000);
+    affiliateAmount = orderFee.minFeeUsdc - domeAmount;
+    totalFee = orderFee.minFeeUsdc;
+  } else if (totalFee === BigInt(0)) {
+    // If both rates are 0, apply minimum to dome only
+    domeAmount = orderFee.minFeeUsdc;
+    affiliateAmount = BigInt(0);
+    totalFee = orderFee.minFeeUsdc;
+  }
+
+  return {
+    totalFee,
+    domeAmount,
+    affiliateAmount,
+    domeAddress,
+    affiliateAddress: affiliate.address,
+  };
+}
+
+/**
+ * Calculate performance fee with independent DOME and affiliate amounts
+ *
+ * Uses the v2 fee model where Dome and Affiliate fees are calculated
+ * independently using their own basis point rates, not as a split
+ * of a single total fee.
  *
  * @param winnings - Total winnings amount in USDC (6 decimals)
  * @param feeConfig - Fee configuration for this user
@@ -78,9 +166,11 @@ export interface PaymentVerification {
  *
  * @example
  * ```typescript
- * const split = calculatePerformanceFee(parseUsdc(100), feeConfig);
- * // winnings: $100, fee: 5% = $5
- * // split: $4 to DOME (80%), $1 to affiliate (20%)
+ * const fees = calculatePerformanceFee(parseUsdc(1000), feeConfig);
+ * // winnings: $1000
+ * // domeFeeBps: 400 (4%) = $40 to DOME
+ * // affiliateFeeBps: 100 (1%) = $10 to affiliate
+ * // total: $50
  * ```
  */
 export function calculatePerformanceFee(
@@ -99,18 +189,25 @@ export function calculatePerformanceFee(
     };
   }
 
-  // Calculate total fee
-  let totalFee = (winnings * BigInt(performanceFee.feeBps)) / BigInt(10000);
+  // Calculate independent fees using separate rates
+  let domeAmount =
+    (winnings * BigInt(performanceFee.domeFeeBps)) / BigInt(10000);
+  let affiliateAmount =
+    (winnings * BigInt(performanceFee.affiliateFeeBps)) / BigInt(10000);
+  let totalFee = domeAmount + affiliateAmount;
 
-  // Apply minimum fee
-  if (totalFee < performanceFee.minFeeUsdc) {
+  // Apply minimum fee with proportional scaling
+  if (totalFee < performanceFee.minFeeUsdc && totalFee > BigInt(0)) {
+    const scale = (performanceFee.minFeeUsdc * BigInt(10000)) / totalFee;
+    domeAmount = (domeAmount * scale) / BigInt(10000);
+    affiliateAmount = performanceFee.minFeeUsdc - domeAmount;
+    totalFee = performanceFee.minFeeUsdc;
+  } else if (totalFee === BigInt(0)) {
+    // If both rates are 0, apply minimum to dome only
+    domeAmount = performanceFee.minFeeUsdc;
+    affiliateAmount = BigInt(0);
     totalFee = performanceFee.minFeeUsdc;
   }
-
-  // Split between DOME and affiliate
-  const affiliateAmount =
-    (totalFee * BigInt(affiliate.splitBps)) / BigInt(10000);
-  const domeAmount = totalFee - affiliateAmount;
 
   return {
     totalFee,

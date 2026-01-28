@@ -883,6 +883,53 @@ export class DomeFeeEscrowClient {
   }
 
   /**
+   * Check if an escrow exists for a given order/position ID
+   *
+   * An escrow exists if it has been funded (payer is not zero address).
+   * Use this to check if authorization has already been used before signing a new one.
+   *
+   * @param orderId - Order/position identifier (bytes32)
+   * @returns Object with boolean flags for each fee type
+   *
+   * @example
+   * ```typescript
+   * const exists = await client.hasEscrow(orderId);
+   * if (exists.hasOrderFee) {
+   *   console.log('Order fee already escrowed');
+   * }
+   * if (exists.hasPerformanceFee) {
+   *   console.log('Performance fee already escrowed');
+   * }
+   * ```
+   */
+  async hasEscrow(orderId: string): Promise<{
+    hasAnyEscrow: boolean;
+    hasOrderFee: boolean;
+    hasPerformanceFee: boolean;
+    payer: string;
+    affiliate: string;
+  }> {
+    const status = await this.getEscrowStatus(orderId);
+    const zeroAddress = '0x0000000000000000000000000000000000000000';
+
+    const hasOrderFee =
+      status.orderFeeDomeAmount > BigInt(0) ||
+      status.orderFeeAffiliateAmount > BigInt(0);
+
+    const hasPerformanceFee =
+      status.perfFeeDomeAmount > BigInt(0) ||
+      status.perfFeeAffiliateAmount > BigInt(0);
+
+    return {
+      hasAnyEscrow: status.payer.toLowerCase() !== zeroAddress.toLowerCase(),
+      hasOrderFee,
+      hasPerformanceFee,
+      payer: status.payer,
+      affiliate: status.affiliate,
+    };
+  }
+
+  /**
    * Get the EIP-712 domain separator from the contract
    *
    * @returns Domain separator hash

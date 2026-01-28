@@ -881,15 +881,22 @@ export interface SignedFeeAuthorization {
 export type PolymarketOrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK';
 
 /**
- * Fee authorization for escrow V1 (legacy - included in order request)
+ * Fee authorization for escrow (included in order request)
+ * Supports both V1 (feeAmount only) and V2 (split amounts) formats
  */
 export interface FeeAuthorizationParams {
   /** Unique order ID (bytes32 hex string) */
   orderId: string;
   /** Address of the fee payer */
   payer: string;
-  /** Fee amount in USDC (uint256 as string) */
+  /** Total fee amount in USDC (uint256 as string) */
   feeAmount: string;
+  /** Dome's fee amount in USDC (uint256 as string) - V2 */
+  domeAmount?: string;
+  /** Affiliate's fee amount in USDC (uint256 as string) - V2 */
+  affiliateAmount?: string;
+  /** Chain ID for cross-chain replay protection - V2 */
+  chainId?: number;
   /** Deadline timestamp (unix seconds, must be number not string) */
   deadline: number;
   /** EIP-712 signature (hex string) */
@@ -904,6 +911,28 @@ export interface OrderFeeAuthorizationParams {
   orderId: string;
   /** Address of the fee payer */
   payer: string;
+  /** Dome's fee amount in USDC (uint256 as string) */
+  domeAmount: string;
+  /** Affiliate's fee amount in USDC (uint256 as string) */
+  affiliateAmount: string;
+  /** Chain ID for cross-chain replay protection */
+  chainId: number;
+  /** Deadline timestamp (unix seconds) */
+  deadline: number;
+  /** EIP-712 signature (hex string) */
+  signature: string;
+}
+
+/**
+ * Performance fee authorization for escrow V2 (included in claim winnings request)
+ */
+export interface PerformanceFeeAuthorizationParams {
+  /** Position ID (bytes32 hex string) */
+  positionId: string;
+  /** Address of the fee payer */
+  payer: string;
+  /** Expected winnings amount in USDC (uint256 as string) */
+  expectedWinnings: string;
   /** Dome's fee amount in USDC (uint256 as string) */
   domeAmount: string;
   /** Affiliate's fee amount in USDC (uint256 as string) */
@@ -982,4 +1011,137 @@ export interface ServerPlaceOrderResponse {
   id: string;
   result?: ServerPlaceOrderResult;
   error?: ServerPlaceOrderError;
+}
+
+// ===== Cancel Order Types =====
+
+/**
+ * Parameters for canceling an order via Dome API
+ */
+export interface CancelOrderParams {
+  /** Polymarket order ID to cancel */
+  orderId: string;
+  /** Wallet address the CLOB credentials are registered for */
+  signerAddress: string;
+  /** CLOB API credentials */
+  credentials: PolymarketCredentials;
+}
+
+/**
+ * Request to cancel an order via Dome server
+ */
+export interface ServerCancelOrderRequest {
+  orderId: string;
+  signerAddress: string;
+  credentials: PolymarketCredentials;
+}
+
+/**
+ * Result from successful order cancellation
+ */
+export interface ServerCancelOrderResult {
+  success: true;
+  orderId: string;
+  clobCancelResult: {
+    canceled: string[];
+    not_canceled: Record<string, string>;
+  };
+  escrow?: {
+    escrowOrderId: string;
+    previousStatus: string;
+    refundTriggered: boolean;
+    refundTxHash?: string;
+    refundedAmount?: string;
+  };
+  latencyMs: number;
+}
+
+/**
+ * Response from Dome server for order cancellation
+ */
+export interface ServerCancelOrderResponse {
+  success?: boolean;
+  orderId?: string;
+  clobCancelResult?: {
+    canceled: string[];
+    not_canceled: Record<string, string>;
+    error?: string;
+    status?: number;
+  };
+  escrow?: {
+    escrowOrderId: string;
+    previousStatus: string;
+    refundTriggered: boolean;
+    refundTxHash?: string;
+    refundedAmount?: string;
+  };
+  error?: string;
+  message?: string;
+  latencyMs?: number;
+}
+
+// ===== Claim Winnings Types =====
+
+/**
+ * Parameters for claiming winnings via Dome API
+ */
+export interface ClaimWinningsParams {
+  /** Wallet address claiming winnings */
+  walletAddress: string;
+  /** Wallet address the CLOB credentials are registered for */
+  signerAddress: string;
+  /** Condition ID of the resolved market */
+  conditionId: string;
+  /** CLOB API credentials */
+  credentials: PolymarketCredentials;
+  /** Performance fee authorization for escrow V2 (optional) */
+  performanceFeeAuth?: PerformanceFeeAuthorizationParams;
+}
+
+/**
+ * Request to claim winnings via Dome server
+ */
+export interface ServerClaimWinningsRequest {
+  walletAddress: string;
+  signerAddress: string;
+  conditionId: string;
+  credentials: PolymarketCredentials;
+  /** Performance fee authorization for escrow V2 (optional) */
+  performanceFeeAuth?: PerformanceFeeAuthorizationParams;
+}
+
+/**
+ * Result from successful winnings claim
+ */
+export interface ServerClaimWinningsResult {
+  success: true;
+  walletAddress: string;
+  conditionId: string;
+  claimTxHash?: string;
+  amount?: string;
+  escrow?: {
+    perfFeeTriggered: boolean;
+    perfFeeTxHash?: string;
+    perfFeeAmount?: string;
+  };
+  latencyMs: number;
+}
+
+/**
+ * Response from Dome server for winnings claim
+ */
+export interface ServerClaimWinningsResponse {
+  success?: boolean;
+  walletAddress?: string;
+  conditionId?: string;
+  claimTxHash?: string;
+  amount?: string;
+  escrow?: {
+    perfFeeTriggered: boolean;
+    perfFeeTxHash?: string;
+    perfFeeAmount?: string;
+  };
+  error?: string;
+  message?: string;
+  latencyMs?: number;
 }

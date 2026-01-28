@@ -266,9 +266,12 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
           apiPassphrase: creds.apiPassphrase,
         },
         clientOrderId,
-        orderFeeAuth: {
+        feeAuth: {
           orderId: orderFeeAuth.orderId,
           payer: orderFeeAuth.payer,
+          feeAmount: (
+            orderFeeAuth.domeAmount + orderFeeAuth.affiliateAmount
+          ).toString(),
           domeAmount: orderFeeAuth.domeAmount.toString(),
           affiliateAmount: orderFeeAuth.affiliateAmount.toString(),
           chainId: orderFeeAuth.chainId,

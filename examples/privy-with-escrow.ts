@@ -39,14 +39,15 @@ const CONFIG = {
   chainId: 137,
 };
 
-// Example market for testing
+// Test market: Trump Greenland (active market with liquidity)
 // Note: Order must generate at least $0.01 fee (min fee)
 // Fee = size * price * 0.25%, so need size * price >= $4
 const TEST_MARKET = {
+  title: 'Will Trump acquire Greenland before 2027?',
   tokenId:
-    '104173557214744537570424345347209544585775842950109756851652855913015295701992',
-  size: 100,
-  price: 0.05, // $5 order = $0.0125 fee (above $0.01 min)
+    '5161623255678193352839985156330393796378434470119114669671615782853260939535',
+  size: 10, // 10 shares
+  price: 0.05, // $0.05 per share (resting order below market)
 };
 
 // =============================================================================

@@ -66,8 +66,9 @@ export type {
   ApproveWithSignerResult,
 } from './approve.js';
 
-// Performance Fee (wins-only model - legacy)
+// Performance Fee (wins-only model - v2 independent fees)
 export {
+  calculateOrderFee,
   calculatePerformanceFee,
   verifyPerformanceFeePayment,
   buildUsdcTransfer,
@@ -76,6 +77,7 @@ export {
 
 export type {
   FeeConfig,
+  OrderFeeSplit,
   PerformanceFeeSplit,
   PaymentVerification,
 } from './performance-fee.js';
