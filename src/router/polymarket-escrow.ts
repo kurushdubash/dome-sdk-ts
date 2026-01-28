@@ -57,7 +57,8 @@ export interface EscrowConfig {
 /**
  * Extended router config with escrow settings
  */
-export interface PolymarketRouterWithEscrowConfig extends PolymarketRouterConfig {
+export interface PolymarketRouterWithEscrowConfig
+  extends PolymarketRouterConfig {
   escrow?: EscrowConfig;
 }
 
