@@ -1,0 +1,23 @@
+{
+  "name": "dome-link-flow-example",
+  "version": "1.0.0",
+  "description": "Example script for Dome Polymarket link flow (account linking)",
+  "scripts": {
+    "test": "ts-node test-link-flow.ts",
+    "test:safe": "WALLET_TYPE=safe ts-node test-link-flow.ts",
+    "test:safe:allowances": "WALLET_TYPE=safe TEST_ALLOWANCES=true ts-node test-link-flow.ts"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0",
+    "ethers": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

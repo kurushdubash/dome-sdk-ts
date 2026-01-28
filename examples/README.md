@@ -94,6 +94,24 @@ npx tsx examples/privy-polymarket-simple.ts
 
 ## Examples
 
+### Link Flow Example (`link-flow/`)
+
+**Self-contained example for testing the complete account linking flow.**
+
+Demonstrates all endpoints for linking a wallet to Polymarket:
+- `/link-prepare` and `/link-complete` for account linking
+- `/link-set-allowances-prepare` and `/link-set-allowances` for Safe wallet allowances
+
+```bash
+cd examples/link-flow
+npm install
+API_BASE_URL=https://api.domeapi.io npm test
+```
+
+See [link-flow/README.md](./link-flow/README.md) for full documentation.
+
+---
+
 ### Privy Integration (`privy-integration.ts`)
 
 Demonstrates end-to-end integration with [Privy](https://privy.io) for wallet-agnostic Polymarket trading.
