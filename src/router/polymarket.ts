@@ -11,6 +11,14 @@ import {
   PolymarketCredentials,
   ServerPlaceOrderRequest,
   ServerPlaceOrderResponse,
+  CancelOrderParams,
+  ServerCancelOrderRequest,
+  ServerCancelOrderResponse,
+  ServerCancelOrderResult,
+  ClaimWinningsParams,
+  ServerClaimWinningsRequest,
+  ServerClaimWinningsResponse,
+  ServerClaimWinningsResult,
 } from '../types.js';
 import {
   createPrivyClient,
@@ -772,5 +780,198 @@ export class PolymarketRouter {
   ): Promise<void> {
     const relayClient = this.createRelayClient(signer);
     await setSafeUsdcApproval(relayClient, onProgress);
+  }
+
+  /**
+   * Cancel an order via Dome API
+   *
+   * This cancels the order on Polymarket CLOB and triggers any escrow refund
+   * if the order had pre-paid fees.
+   *
+   * @param params - Cancel order parameters
+   * @returns Cancel result including CLOB status and escrow refund info
+   *
+   * @example
+   * ```typescript
+   * const result = await router.cancelOrder({
+   *   orderId: '0x1234...',
+   *   signerAddress: '0xabc...',
+   *   credentials: {
+   *     apiKey: 'key',
+   *     apiSecret: 'secret',
+   *     apiPassphrase: 'passphrase',
+   *   },
+   * });
+   * console.log('Canceled:', result.clobCancelResult.canceled);
+   * console.log('Refund TX:', result.escrow?.refundTxHash);
+   * ```
+   */
+  async cancelOrder(
+    params: CancelOrderParams
+  ): Promise<ServerCancelOrderResult> {
+    if (!this.apiKey) {
+      throw new Error('Dome API key required for cancelOrder');
+    }
+
+    const { orderId, signerAddress, credentials } = params;
+
+    const request: ServerCancelOrderRequest = {
+      orderId,
+      signerAddress,
+      credentials: {
+        apiKey: credentials.apiKey,
+        apiSecret: credentials.apiSecret,
+        apiPassphrase: credentials.apiPassphrase,
+      },
+    };
+
+    const response = await fetch(
+      `${DOME_API_ENDPOINT}/polymarket/cancelOrder`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(request),
+      }
+    );
+
+    if (!response.ok) {
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch {
+        // Ignore if we can't read the body
+      }
+      throw new Error(
+        `Cancel request failed: ${response.status} ${response.statusText}${errorBody ? ` - ${errorBody}` : ''}`
+      );
+    }
+
+    const serverResponse: ServerCancelOrderResponse = await response.json();
+
+    if (serverResponse.error || serverResponse.message) {
+      throw new Error(
+        `Order cancellation failed: ${serverResponse.error || serverResponse.message}`
+      );
+    }
+
+    if (!serverResponse.success) {
+      throw new Error('Server returned unsuccessful cancellation');
+    }
+
+    return serverResponse as ServerCancelOrderResult;
+  }
+
+  /**
+   * Claim winnings from a resolved market via Dome API
+   *
+   * This redeems winning position tokens for USDC and triggers any
+   * performance fee collection if configured. If using fee escrow V2,
+   * include a signed performanceFeeAuth to authorize the performance fee.
+   *
+   * @param params - Claim winnings parameters
+   * @returns Claim result including transaction hash and performance fee info
+   *
+   * @example
+   * ```typescript
+   * // Basic claim (server handles performance fee if configured)
+   * const result = await router.claimWinnings({
+   *   walletAddress: '0xabc...',
+   *   signerAddress: '0xabc...',
+   *   conditionId: '0x1234...',
+   *   credentials: {
+   *     apiKey: 'key',
+   *     apiSecret: 'secret',
+   *     apiPassphrase: 'passphrase',
+   *   },
+   * });
+   *
+   * // With performance fee authorization (V2 escrow)
+   * const resultWithAuth = await router.claimWinnings({
+   *   walletAddress: '0xabc...',
+   *   signerAddress: '0xabc...',
+   *   conditionId: '0x1234...',
+   *   credentials: { apiKey, apiSecret, apiPassphrase },
+   *   performanceFeeAuth: {
+   *     positionId: '0x...',
+   *     payer: '0xabc...',
+   *     expectedWinnings: '1000000000', // 1000 USDC
+   *     domeAmount: '40000000',         // 40 USDC (4%)
+   *     affiliateAmount: '10000000',    // 10 USDC (1%)
+   *     chainId: 137,
+   *     deadline: Math.floor(Date.now() / 1000) + 3600,
+   *     signature: '0x...',
+   *   },
+   * });
+   * console.log('Claim TX:', result.claimTxHash);
+   * console.log('Perf fee:', result.escrow?.perfFeeAmount);
+   * ```
+   */
+  async claimWinnings(
+    params: ClaimWinningsParams
+  ): Promise<ServerClaimWinningsResult> {
+    if (!this.apiKey) {
+      throw new Error('Dome API key required for claimWinnings');
+    }
+
+    const {
+      walletAddress,
+      signerAddress,
+      conditionId,
+      credentials,
+      performanceFeeAuth,
+    } = params;
+
+    const request: ServerClaimWinningsRequest = {
+      walletAddress,
+      signerAddress,
+      conditionId,
+      credentials: {
+        apiKey: credentials.apiKey,
+        apiSecret: credentials.apiSecret,
+        apiPassphrase: credentials.apiPassphrase,
+      },
+      ...(performanceFeeAuth && { performanceFeeAuth }),
+    };
+
+    const response = await fetch(
+      `${DOME_API_ENDPOINT}/polymarket/claimWinnings`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(request),
+      }
+    );
+
+    if (!response.ok) {
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch {
+        // Ignore if we can't read the body
+      }
+      throw new Error(
+        `Claim winnings request failed: ${response.status} ${response.statusText}${errorBody ? ` - ${errorBody}` : ''}`
+      );
+    }
+
+    const serverResponse: ServerClaimWinningsResponse = await response.json();
+
+    if (serverResponse.error || serverResponse.message) {
+      throw new Error(
+        `Claim winnings failed: ${serverResponse.error || serverResponse.message}`
+      );
+    }
+
+    if (!serverResponse.success) {
+      throw new Error('Server returned unsuccessful claim');
+    }
+
+    return serverResponse as ServerClaimWinningsResult;
   }
 }

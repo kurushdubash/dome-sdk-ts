@@ -15,6 +15,11 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./escrow": {
+      "types": "./dist/types/escrow/index.d.ts",
+      "import": "./dist/esm/escrow/index.js",
+      "require": "./dist/cjs/escrow/index.js"
     }
   },
   "scripts": {
@@ -60,7 +65,6 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "@dome-api/sdk": "^0.17.0",
     "@privy-io/server-auth": "^1.32.5",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.10",

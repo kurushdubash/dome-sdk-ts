@@ -11,13 +11,14 @@ import { PrivyClient } from '@privy-io/server-auth';
 import { RouterSigner, Eip712Payload } from '../types.js';
 import { ethers } from 'ethers';
 
-// Polygon contract addresses for Polymarket
+// Polygon contract addresses for Polymarket and Dome
 const POLYGON_ADDRESSES = {
   USDC: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
   CTF: '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045',
   CTF_EXCHANGE: '0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E',
   NEG_RISK_CTF_EXCHANGE: '0xC5d563A36AE78145C45a50134d48A1215220f80a',
   NEG_RISK_ADAPTER: '0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296',
+  DOME_FEE_ESCROW: '0x93519731c9d45738CD999F8b8E86936cc2a33870',
 };
 
 // ABI encoders
@@ -162,7 +163,7 @@ export function createPrivySignerFromEnv(
 }
 
 /**
- * Check if a wallet has all required Polymarket token allowances
+ * Check if a wallet has all required Polymarket and Dome token allowances
  *
  * @param walletAddress - The wallet address to check
  * @param rpcUrl - Optional Polygon RPC URL (defaults to public RPC)
@@ -177,6 +178,7 @@ export async function checkPrivyWalletAllowances(
     ctfExchange: boolean;
     negRiskCtfExchange: boolean;
     negRiskAdapter: boolean;
+    domeFeeEscrow: boolean;
   };
   ctf: {
     ctfExchange: boolean;
@@ -202,32 +204,38 @@ export async function checkPrivyWalletAllowances(
     provider
   );
 
-  const [usdcCtf, usdcNeg, usdcAdapter, ctfCtf, ctfNeg, ctfAdapter] =
-    await Promise.all([
-      usdcContract.allowance(walletAddress, POLYGON_ADDRESSES.CTF_EXCHANGE),
-      usdcContract.allowance(
-        walletAddress,
-        POLYGON_ADDRESSES.NEG_RISK_CTF_EXCHANGE
-      ),
-      usdcContract.allowance(walletAddress, POLYGON_ADDRESSES.NEG_RISK_ADAPTER),
-      ctfContract.isApprovedForAll(
-        walletAddress,
-        POLYGON_ADDRESSES.CTF_EXCHANGE
-      ),
-      ctfContract.isApprovedForAll(
-        walletAddress,
-        POLYGON_ADDRESSES.NEG_RISK_CTF_EXCHANGE
-      ),
-      ctfContract.isApprovedForAll(
-        walletAddress,
-        POLYGON_ADDRESSES.NEG_RISK_ADAPTER
-      ),
-    ]);
+  const [
+    usdcCtf,
+    usdcNeg,
+    usdcAdapter,
+    usdcEscrow,
+    ctfCtf,
+    ctfNeg,
+    ctfAdapter,
+  ] = await Promise.all([
+    usdcContract.allowance(walletAddress, POLYGON_ADDRESSES.CTF_EXCHANGE),
+    usdcContract.allowance(
+      walletAddress,
+      POLYGON_ADDRESSES.NEG_RISK_CTF_EXCHANGE
+    ),
+    usdcContract.allowance(walletAddress, POLYGON_ADDRESSES.NEG_RISK_ADAPTER),
+    usdcContract.allowance(walletAddress, POLYGON_ADDRESSES.DOME_FEE_ESCROW),
+    ctfContract.isApprovedForAll(walletAddress, POLYGON_ADDRESSES.CTF_EXCHANGE),
+    ctfContract.isApprovedForAll(
+      walletAddress,
+      POLYGON_ADDRESSES.NEG_RISK_CTF_EXCHANGE
+    ),
+    ctfContract.isApprovedForAll(
+      walletAddress,
+      POLYGON_ADDRESSES.NEG_RISK_ADAPTER
+    ),
+  ]);
 
   const usdc = {
     ctfExchange: usdcCtf.gt(0),
     negRiskCtfExchange: usdcNeg.gt(0),
     negRiskAdapter: usdcAdapter.gt(0),
+    domeFeeEscrow: usdcEscrow.gt(0),
   };
 
   const ctf = {
@@ -240,6 +248,7 @@ export async function checkPrivyWalletAllowances(
     usdc.ctfExchange &&
     usdc.negRiskCtfExchange &&
     usdc.negRiskAdapter &&
+    usdc.domeFeeEscrow &&
     ctf.ctfExchange &&
     ctf.negRiskCtfExchange &&
     ctf.negRiskAdapter;
@@ -258,10 +267,21 @@ export interface SetPrivyWalletAllowancesOptions {
 }
 
 /**
- * Set all required token allowances for Polymarket trading using Privy's sendTransaction
+ * Set all required token allowances for Polymarket and Dome using Privy's sendTransaction
  *
  * This uses Privy's walletApi.ethereum.sendTransaction() to send approval transactions
  * directly from server-side. This is the recommended method for Privy-managed wallets.
+ *
+ * Approves USDC for:
+ * - CTF Exchange (Polymarket trading)
+ * - Neg Risk CTF Exchange (Polymarket neg risk markets)
+ * - Neg Risk Adapter (Polymarket neg risk markets)
+ * - Dome Fee Escrow (Dome fee collection)
+ *
+ * Approves CTF tokens for:
+ * - CTF Exchange
+ * - Neg Risk CTF Exchange
+ * - Neg Risk Adapter
  *
  * @param privy - Configured PrivyClient instance
  * @param walletId - Privy wallet ID
@@ -293,6 +313,7 @@ export async function setPrivyWalletAllowances(
     ctfExchange?: string;
     negRiskCtfExchange?: string;
     negRiskAdapter?: string;
+    domeFeeEscrow?: string;
   };
   ctf: {
     ctfExchange?: string;
@@ -316,6 +337,7 @@ export async function setPrivyWalletAllowances(
       ctfExchange?: string;
       negRiskCtfExchange?: string;
       negRiskAdapter?: string;
+      domeFeeEscrow?: string;
     };
     ctf: {
       ctfExchange?: string;
@@ -330,7 +352,11 @@ export async function setPrivyWalletAllowances(
     token: string;
     spender: string;
     isERC20: boolean;
-    key: 'ctfExchange' | 'negRiskCtfExchange' | 'negRiskAdapter';
+    key:
+      | 'ctfExchange'
+      | 'negRiskCtfExchange'
+      | 'negRiskAdapter'
+      | 'domeFeeEscrow';
     type: 'usdc' | 'ctf';
   }> = [];
 
@@ -361,6 +387,16 @@ export async function setPrivyWalletAllowances(
       spender: POLYGON_ADDRESSES.NEG_RISK_ADAPTER,
       isERC20: true,
       key: 'negRiskAdapter',
+      type: 'usdc',
+    });
+  }
+  if (!allowances.usdc.domeFeeEscrow) {
+    approvals.push({
+      name: 'USDC → Dome Fee Escrow',
+      token: POLYGON_ADDRESSES.USDC,
+      spender: POLYGON_ADDRESSES.DOME_FEE_ESCROW,
+      isERC20: true,
+      key: 'domeFeeEscrow',
       type: 'usdc',
     });
   }
@@ -423,7 +459,11 @@ export async function setPrivyWalletAllowances(
       sponsor,
     });
 
-    txHashes[approval.type][approval.key] = result.hash;
+    if (approval.type === 'usdc') {
+      txHashes.usdc[approval.key as keyof typeof txHashes.usdc] = result.hash;
+    } else {
+      txHashes.ctf[approval.key as keyof typeof txHashes.ctf] = result.hash;
+    }
   }
 
   return txHashes;

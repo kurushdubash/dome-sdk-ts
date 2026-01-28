@@ -13,6 +13,12 @@
  */
 
 export { PolymarketRouter } from './polymarket.js';
+export { PolymarketRouterWithEscrow } from './polymarket-escrow.js';
+export type {
+  EscrowConfig,
+  PolymarketRouterWithEscrowConfig,
+  PlaceOrderWithEscrowParams,
+} from './polymarket-escrow.js';
 export type {
   RouterSigner,
   LinkPolymarketUserParams,
@@ -30,6 +36,7 @@ export type {
   ServerPlaceOrderResponse,
   ServerPlaceOrderResult,
   ServerPlaceOrderError,
+  SignedFeeAuthorization,
 } from '../types.js';
 
 // Re-export SafeInitResult from safe.ts (it's defined there to avoid circular deps)

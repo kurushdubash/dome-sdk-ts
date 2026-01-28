@@ -92,6 +92,18 @@ npx tsx examples/privy-polymarket-simple.ts
 
 ---
 
+## Guides
+
+| Guide                                                              | Description                                  |
+| ------------------------------------------------------------------ | -------------------------------------------- |
+| [PRIVY_QUICKSTART.md](./PRIVY_QUICKSTART.md)                       | Privy + Polymarket integration               |
+| [ESCROW_ROUTER_QUICKSTART.md](./ESCROW_ROUTER_QUICKSTART.md)       | Fee escrow with `PolymarketRouterWithEscrow` |
+| [PRIVY_FEE_MODULE_QUICKSTART.md](./PRIVY_FEE_MODULE_QUICKSTART.md) | Manual fee module integration                |
+| [EOA.md](./EOA.md)                                                 | Direct private key signing                   |
+| [EXTERNAL_WALLET_QUICKSTART.md](./EXTERNAL_WALLET_QUICKSTART.md)   | External wallet integration                  |
+
+---
+
 ## Examples
 
 ### Link Flow Example (`link-flow/`)

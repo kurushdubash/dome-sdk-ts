@@ -54,5 +54,40 @@ export * from './router/index.js';
 // Re-export utility helpers
 export * from './utils/privy.js';
 
+// Re-export escrow module (as namespace and direct exports)
+export * as escrow from './escrow/index.js';
+export {
+  // DomeFeeEscrow v1 exports
+  approveEscrow,
+  checkAllowances,
+  hasRequiredApprovals,
+  ensureEscrowApproval,
+  generateOrderId,
+  createFeeAuthorization,
+  signFeeAuthorization,
+  signFeeAuthorizationWithSigner,
+  formatUsdc,
+  parseUsdc,
+  calculateFee,
+  ESCROW_CONTRACT_POLYGON,
+  ESCROW_CONTRACT_V1_POLYGON,
+  ESCROW_CONTRACT_V2_POLYGON,
+  USDC_POLYGON,
+  // DomeFeeEscrow v2 exports
+  DomeFeeEscrowClient,
+  ORDER_FEE_TYPES,
+  PERFORMANCE_FEE_TYPES,
+  createDomeFeeEscrowEIP712Domain,
+  DOMAIN_NAME,
+  DOMAIN_VERSION,
+  MIN_ORDER_FEE,
+  MIN_PERFORMANCE_FEE,
+  MAX_FEE_ABSOLUTE,
+  MAX_ORDER_FEE_BPS,
+  MAX_PERFORMANCE_FEE_BPS,
+  ESCROW_TIMEOUT_SECONDS,
+  FeeType,
+} from './escrow/index.js';
+
 // Default export
 export default DomeClient;
