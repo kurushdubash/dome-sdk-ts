@@ -62,6 +62,52 @@ const dome = new DomeClient({
 });
 ```
 
+## Pagination
+
+Most endpoints that return lists support cursor-based pagination using `pagination_key` for efficient navigation through large datasets. The SDK maintains backwards compatibility with offset-based pagination, but `pagination_key` is recommended for better performance.
+
+### Using Cursor-Based Pagination (Recommended)
+
+```typescript
+// Get first page
+const firstPage = await dome.polymarket.orders.getOrders({
+  market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
+  limit: 50,
+});
+
+// Check if more results exist
+if (firstPage.pagination.has_more) {
+  // Get next page using pagination_key
+  const secondPage = await dome.polymarket.orders.getOrders({
+    market_slug: 'bitcoin-up-or-down-july-25-8pm-et',
+    limit: 50,
+    pagination_key: firstPage.pagination.pagination_key,
+  });
+}
+```
+
+### Using Offset-Based Pagination (Legacy)
+
+For backwards compatibility, offset-based pagination is still supported:
+
+```typescript
+// First page
+const firstPage = await dome.polymarket.markets.getMarkets({
+  status: 'open',
+  limit: 20,
+  offset: 0,
+});
+
+// Second page
+const secondPage = await dome.polymarket.markets.getMarkets({
+  status: 'open',
+  limit: 20,
+  offset: 20,
+});
+```
+
+**Note:** Offset-based pagination may have limitations for large offsets. Use `pagination_key` for optimal performance.
+
 ## API Endpoints
 
 ### Polymarket
@@ -179,11 +225,81 @@ const marketsByEvent = await dome.polymarket.markets.getMarkets({
 - `market_slug` (string[], optional): Array of market slugs
 - `event_slug` (string[], optional): Array of event slugs
 - `condition_id` (string[], optional): Array of condition IDs
+- `token_id` (string[], optional): Array of token IDs
 - `tags` (string[], optional): Array of tags to filter by
 - `status` ('open' | 'closed', optional): Market status filter
 - `min_volume` (number, optional): Minimum volume filter
 - `limit` (number, optional): Results per page
+- `offset` (number, optional): Pagination offset (deprecated, use pagination_key)
+- `pagination_key` (string, optional): Pagination key for next page (recommended)
+- `start_time` (number, optional): Filter markets from this timestamp
+- `end_time` (number, optional): Filter markets until this timestamp
+
+##### Get Events
+
+Fetch events (groups of related markets) with optional filtering:
+
+```typescript
+// Get all open events
+const events = await dome.polymarket.markets.getEvents({
+  status: 'open',
+  limit: 10,
+});
+
+// Get specific event with its markets
+const event = await dome.polymarket.markets.getEvents({
+  event_slug: 'presidential-election-winner-2028',
+  include_markets: true,
+});
+
+// Filter by tags
+const sportsEvents = await dome.polymarket.markets.getEvents({
+  tags: ['sports', 'football'],
+  limit: 20,
+});
+```
+
+**Parameters:**
+
+- `event_slug` (string, optional): Specific event slug to fetch
+- `tags` (string[], optional): Array of tags to filter by
+- `status` ('open' | 'closed', optional): Event status filter
+- `include_markets` (boolean, optional): Include full market data in response
+- `start_time` (number, optional): Filter events from this timestamp
+- `end_time` (number, optional): Filter events until this timestamp
+- `game_start_time` (number, optional): Filter by game start time (for sports events)
+- `limit` (number, optional): Results per page
 - `offset` (number, optional): Pagination offset
+
+**Response:**
+
+```typescript
+{
+  events: [
+    {
+      event_slug: 'presidential-election-winner-2028',
+      title: 'Presidential Election Winner 2028',
+      subtitle: 'Who will win the 2028 US Presidential Election?',
+      status: 'open',
+      start_time: 1704067200,
+      end_time: 1730851200,
+      volume_fiat_amount: 3686335059.29,
+      settlement_sources: 'Associated Press',
+      rules_url: null,
+      image: 'https://polymarket.com/images/election-2024.png',
+      tags: ['politics', 'elections'],
+      market_count: 17,
+      markets: [...] // Only present when include_markets=true
+    }
+  ],
+  pagination: {
+    limit: 10,
+    offset: 0,
+    total: 500,
+    has_more: true
+  }
+}
+```
 
 #### Wallet
 
@@ -1516,14 +1632,176 @@ try {
 
 ## Integration Testing
 
-The SDK includes a comprehensive integration test that makes live calls to the real API endpoints to verify everything works correctly.
+The SDK includes a comprehensive integration test suite that makes live calls to the real API endpoints to verify everything works correctly. The tests cover all endpoints including markets, orders, wallet analytics, events, and cross-platform matching.
+
+### Running Tests
+
+#### Test Against Local Source (Development)
+
+Test your local changes before publishing:
 
 ```bash
-# Run integration tests with your API key
+# Run integration tests against local source code
 yarn integration-test YOUR_API_KEY
+
+# Or with npm
+npm run integration-test YOUR_API_KEY
 ```
 
-This smoke test covers all endpoints with various parameter combinations and provides detailed results. See `src/tests/README.md` for more information.
+#### Test Against Published Package (Verification)
+
+Test the published npm package to verify it works correctly in production:
+
+```bash
+# Run integration tests against the published @dome-api/sdk package
+yarn integration-test YOUR_API_KEY --external
+
+# Or with npm
+npm run integration-test YOUR_API_KEY --external
+```
+
+**What the `--external` flag does:**
+
+- Fetches the latest published version from npm
+- Installs `@dome-api/sdk` (if not already present)
+- Imports `DomeClient` from the published package
+- Runs all tests against the published version
+
+This is useful for:
+
+- ✅ Verifying the published package works correctly
+- ✅ Testing that build/packaging didn't break anything
+- ✅ Comparing local changes vs. published version
+- ✅ Pre-publish verification
+
+### Complete Testing Workflow
+
+Here's the recommended workflow before publishing a new version:
+
+```bash
+# Step 1: Build your changes
+yarn build
+
+# Step 2: Test local changes
+yarn integration-test YOUR_API_KEY
+
+# Step 3: Publish to npm (if tests pass)
+npm publish
+
+# Step 4: Verify published package works
+yarn integration-test YOUR_API_KEY --external
+```
+
+### Test Coverage
+
+The integration tests verify:
+
+**Polymarket Endpoints:**
+
+- ✅ Market price (current & historical)
+- ✅ Candlestick data
+- ✅ Orderbook history with pagination
+- ✅ Markets filtering (by slug, event, condition, token, tags, status, volume)
+- ✅ Events (by slug, tags, status, with/without markets)
+- ✅ Wallet information and metrics
+- ✅ Wallet PnL (all granularities)
+- ✅ Positions with pagination
+- ✅ Orders with pagination_key based pagination
+- ✅ Activity tracking
+- ✅ WebSocket subscriptions
+
+**Kalshi Endpoints:**
+
+- ✅ Market price (current & historical)
+- ✅ Markets filtering
+- ✅ Trades with pagination
+- ✅ Orderbook history
+
+**Cross-Platform:**
+
+- ✅ Matching markets by slug/ticker
+- ✅ Matching markets by sport and date
+
+**Crypto Prices:**
+
+- ✅ Binance prices with pagination
+- ✅ Chainlink prices with pagination
+
+### Example Output
+
+```
+🚀 Starting Dome SDK Integration Test...
+
+📊 Testing Polymarket Market Endpoints...
+✅ PASSED: Polymarket: Get Market Price (current)
+✅ PASSED: Polymarket: Get Candlesticks (1 hour intervals)
+✅ PASSED: Polymarket: Get Markets (by slug)
+✅ PASSED: Polymarket: Get Events (by event slug with markets)
+
+💰 Testing Polymarket Wallet Endpoints...
+✅ PASSED: Polymarket: Get Wallet
+✅ PASSED: Polymarket: Get Positions (pagination with pagination_key)
+
+📋 Testing Polymarket Orders Endpoints...
+✅ PASSED: Polymarket: Get Orders (pagination with pagination_key)
+
+📊 Integration Test Summary
+========================
+✅ Passed: 85
+❌ Failed: 0
+📈 Success Rate: 100.0%
+
+🎉 All integration tests passed!
+```
+
+### Testing Specific Scenarios
+
+You can modify the test file to focus on specific endpoints:
+
+```typescript
+// In src/tests/integration-test.ts
+// Comment out test sections you don't need to run
+```
+
+### Troubleshooting
+
+**"Package not found" error with `--external`:**
+
+```bash
+# Manually install the package first
+npm install @dome-api/sdk --no-save
+```
+
+**Test a specific published version:**
+
+```bash
+# Install specific version
+npm install @dome-api/sdk@1.2.3 --no-save
+
+# Run tests
+yarn integration-test YOUR_API_KEY --external
+```
+
+**Test local build without publishing:**
+
+```bash
+# Create a local package
+yarn build
+yarn pack
+
+# Install in a test project
+npm install /path/to/dome-api-sdk-x.x.x.tgz
+```
+
+### API Rate Limits
+
+The integration tests make many API calls. If you encounter rate limiting:
+
+- Wait a few minutes between test runs
+- Contact support to increase your rate limits
+- Run tests with a smaller subset of endpoints
+
+For more details on the test implementation, see [`src/tests/integration-test.ts`](./src/tests/integration-test.ts).
 
 ## License
 

@@ -161,7 +161,7 @@ async function runIntegrationTest(
     '56369772478534954338683665819559528414197495274302917800610633957542171787417';
   const testConditionId =
     '0x4567b275e6b667a6217f5cb4f06a797d3a1eaf1d0281fb5bc8c75e2046ae7e57';
-  const testWalletAddress = '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b';
+  const testWalletAddress = '0xdaad6f960d507dba148c1ff908db5a28743169cc';
   const testMarketSlug = 'bitcoin-up-or-down-july-25-8pm-et';
   const testStartTime = 1760470000000; // milliseconds
   const testEndTime = 1760480000000; // milliseconds
@@ -332,14 +332,17 @@ async function runIntegrationTest(
     if (typeof pagination.limit !== 'number') {
       throw new Error('pagination.limit must be a number');
     }
-    if (typeof pagination.offset !== 'number') {
-      throw new Error('pagination.offset must be a number');
-    }
     if (typeof pagination.total !== 'number') {
       throw new Error('pagination.total must be a number');
     }
     if (typeof pagination.has_more !== 'boolean') {
       throw new Error('pagination.has_more must be a boolean');
+    }
+    // pagination_key is optional but should be present when has_more is true
+    if (pagination.has_more && typeof pagination.pagination_key !== 'string') {
+      throw new Error(
+        'pagination.pagination_key must be a string when has_more is true'
+      );
     }
 
     // Validate each market in the response
@@ -465,7 +468,6 @@ async function runIntegrationTest(
     dome.polymarket.markets.getMarkets({
       status: 'open',
       limit: 20,
-      offset: 0,
     })
   );
 
@@ -607,6 +609,114 @@ async function runIntegrationTest(
         if (market.volume_total < 100000) {
           throw new Error(
             `Market volume should be >= 100000, got ${market.volume_total}`
+          );
+        }
+      }
+    }
+  );
+
+  // ===== POLYMARKET EVENTS ENDPOINTS =====
+  console.log('🎪 Testing Polymarket Events Endpoints...\n');
+
+  await runTest(
+    'Polymarket: Get Events (no filters)',
+    () =>
+      dome.polymarket.markets.getEvents({
+        limit: 10,
+      }),
+    result => {
+      if (!result.events || !Array.isArray(result.events)) {
+        throw new Error('Response must have events array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Events (by event slug with markets)',
+    () =>
+      dome.polymarket.markets.getEvents({
+        event_slug: 'presidential-election-winner-2028',
+        include_markets: true,
+      }),
+    result => {
+      if (!result.events || !Array.isArray(result.events)) {
+        throw new Error('Response must have events array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify event structure
+      if (result.events.length > 0) {
+        const event = result.events[0];
+        if (typeof event.event_slug !== 'string') {
+          throw new Error('event.event_slug must be a string');
+        }
+        if (typeof event.title !== 'string') {
+          throw new Error('event.title must be a string');
+        }
+        if (event.status !== 'open' && event.status !== 'closed') {
+          throw new Error(
+            `event.status must be 'open' or 'closed', got: ${event.status}`
+          );
+        }
+        if (typeof event.market_count !== 'number') {
+          throw new Error('event.market_count must be a number');
+        }
+        // Verify markets are included when requested
+        if (event.markets && !Array.isArray(event.markets)) {
+          throw new Error('event.markets must be an array when present');
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Events (by tags)',
+    () =>
+      dome.polymarket.markets.getEvents({
+        tags: ['Politics'],
+        limit: 10,
+      }),
+    result => {
+      if (!result.events || !Array.isArray(result.events)) {
+        throw new Error('Response must have events array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify that returned events have the Politics tag
+      if (result.events.length > 0) {
+        const event = result.events[0];
+        if (!Array.isArray(event.tags)) {
+          throw new Error('event.tags must be an array');
+        }
+      }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Events (by status)',
+    () =>
+      dome.polymarket.markets.getEvents({
+        status: 'open',
+        limit: 10,
+      }),
+    result => {
+      if (!result.events || !Array.isArray(result.events)) {
+        throw new Error('Response must have events array');
+      }
+      if (!result.pagination) {
+        throw new Error('Response must have pagination object');
+      }
+      // Verify that returned events are open
+      if (result.events.length > 0) {
+        const event = result.events[0];
+        if (event.status !== 'open') {
+          throw new Error(
+            `Event status should be 'open', got: ${event.status}`
           );
         }
       }
@@ -1086,7 +1196,6 @@ async function runIntegrationTest(
         start_time: testStartTimeSeconds,
         end_time: testEndTimeSeconds,
         limit: 20,
-        offset: 0,
       }),
     result => {
       if (!result.orders || !Array.isArray(result.orders)) {
@@ -1095,6 +1204,57 @@ async function runIntegrationTest(
       if (!result.pagination) {
         throw new Error('Response must have pagination object');
       }
+    }
+  );
+
+  await runTest(
+    'Polymarket: Get Orders (pagination with pagination_key)',
+    async () => {
+      // First get the first page
+      const firstPage = await dome.polymarket.orders.getOrders({
+        market_slug: testMarketSlug,
+        limit: 5,
+      });
+
+      // If there's no second page, skip detailed validation
+      if (!firstPage.pagination.has_more) {
+        return {
+          skipped: true,
+          reason: 'Market has 5 or fewer orders, no pagination needed',
+          first_page_count: firstPage.orders.length,
+        };
+      }
+
+      // Get the second page using the pagination key
+      const secondPage = await dome.polymarket.orders.getOrders({
+        market_slug: testMarketSlug,
+        limit: 5,
+        pagination_key: firstPage.pagination.pagination_key,
+      });
+
+      // Verify we got different orders
+      if (secondPage.orders.length > 0 && firstPage.orders.length > 0) {
+        const firstPageOrders = firstPage.orders.map(
+          o => `${o.user}:${o.tx_hash}:${o.side}`
+        );
+        const secondPageOrders = secondPage.orders.map(
+          o => `${o.user}:${o.tx_hash}:${o.side}`
+        );
+
+        // Check that there's no overlap (different orders based on user + tx_hash + side)
+        const hasOverlap = firstPageOrders.some(order =>
+          secondPageOrders.includes(order)
+        );
+        if (hasOverlap) {
+          throw new Error('Pagination returned duplicate orders across pages');
+        }
+      }
+
+      return {
+        first_page_count: firstPage.orders.length,
+        second_page_count: secondPage.orders.length,
+        pagination_working: true,
+      };
     }
   );
 

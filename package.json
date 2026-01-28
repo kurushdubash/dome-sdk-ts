@@ -1,6 +1,6 @@
 {
   "name": "@dome-api/sdk",
-  "version": "0.19.0",
+  "version": "1.0.0",
   "description": "The Dome SDK - A comprehensive TypeScript SDK for Dome API",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",

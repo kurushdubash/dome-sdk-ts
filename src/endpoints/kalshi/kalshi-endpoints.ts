@@ -57,7 +57,7 @@ export class KalshiEndpoints extends BaseClient {
    * @returns Promise resolving to Kalshi markets data with pagination
    */
   async getMarkets(
-    params: GetKalshiMarketsParams,
+    params: GetKalshiMarketsParams = {},
     options?: RequestConfig
   ): Promise<KalshiMarketsResponse> {
     const queryParams: Record<string, any> = {};
@@ -77,7 +77,10 @@ export class KalshiEndpoints extends BaseClient {
     if (params.limit !== undefined) {
       queryParams.limit = params.limit;
     }
-    if (params.offset !== undefined) {
+    // Prefer pagination_key (cursor-based) over offset for pagination
+    if (params.pagination_key !== undefined) {
+      queryParams.pagination_key = params.pagination_key;
+    } else if (params.offset !== undefined) {
       queryParams.offset = params.offset;
     }
 
@@ -93,7 +96,8 @@ export class KalshiEndpoints extends BaseClient {
    * Get Kalshi Orderbook History
    *
    * Fetches historical orderbook snapshots for a specific Kalshi market (ticker)
-   * over a specified time range. Returns snapshots of the order book including
+   * over a specified time range. If no start_time and end_time are provided, returns
+   * the latest orderbook snapshot. Returns snapshots of the order book including
    * yes/no bids and asks with prices in both cents and dollars.
    * All timestamps are in milliseconds.
    *
@@ -105,15 +109,22 @@ export class KalshiEndpoints extends BaseClient {
     params: GetKalshiOrderbooksParams,
     options?: RequestConfig
   ): Promise<KalshiOrderbooksResponse> {
-    const { ticker, start_time, end_time, limit } = params;
+    const { ticker, start_time, end_time, limit, paginationKey } = params;
     const queryParams: Record<string, any> = {
       ticker,
-      start_time,
-      end_time,
     };
 
+    if (start_time !== undefined) {
+      queryParams.start_time = start_time;
+    }
+    if (end_time !== undefined) {
+      queryParams.end_time = end_time;
+    }
     if (limit !== undefined) {
       queryParams.limit = limit;
+    }
+    if (paginationKey !== undefined) {
+      queryParams.paginationKey = paginationKey;
     }
 
     return this.makeRequest<KalshiOrderbooksResponse>(
@@ -136,10 +147,11 @@ export class KalshiEndpoints extends BaseClient {
    * @returns Promise resolving to Kalshi trades data with pagination
    */
   async getTrades(
-    params: GetKalshiTradesParams,
+    params: GetKalshiTradesParams = {},
     options?: RequestConfig
   ): Promise<KalshiTradesResponse> {
-    const { ticker, start_time, end_time, limit, offset } = params;
+    const { ticker, start_time, end_time, limit, offset, pagination_key } =
+      params;
     const queryParams: Record<string, any> = {};
 
     if (ticker !== undefined) {
@@ -154,7 +166,10 @@ export class KalshiEndpoints extends BaseClient {
     if (limit !== undefined) {
       queryParams.limit = limit;
     }
-    if (offset !== undefined) {
+    // Prefer pagination_key (cursor-based) over offset for pagination
+    if (pagination_key !== undefined) {
+      queryParams.pagination_key = pagination_key;
+    } else if (offset !== undefined) {
       queryParams.offset = offset;
     }
 
