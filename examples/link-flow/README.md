@@ -8,10 +8,11 @@ Self-contained example demonstrating the complete Polymarket account linking flo
 |------|----------|-------------|
 | 1 | `/link-prepare` | Get EIP-712 payload to sign |
 | 2 | (client) | Sign EIP-712 payload (+ deployment payload if needed) |
-| 3 | `/link-complete` | Submit signature, get API credentials |
-| 4a | `/link-set-allowances-prepare` | Get SafeTx payload for allowances (Safe only) |
-| 4b | (client) | Sign messageHash with eth_sign |
-| 4c | `/link-set-allowances` | Submit signature, set USDC allowances |
+| 3 | `/link-complete` | Submit signature, get API credentials (+ safeTxPayload for fresh Safes) |
+| 4a | (client) | Sign messageHash with eth_sign |
+| 4b | `/link-set-allowances` | Submit signature, set USDC allowances |
+
+**Streamlined Flow:** For freshly deployed Safes (nonce=0), `/link-complete` returns `safeTxPayload` directly, allowing you to skip `/link-set-allowances-prepare`. This reduces the number of API calls from 4 to 3.
 
 ## Setup
 

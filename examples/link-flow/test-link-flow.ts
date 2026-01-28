@@ -5,8 +5,10 @@
  * through the Dome API. It handles:
  *   1. /link-prepare - Get EIP-712 payload to sign
  *   2. /link-complete - Submit signature and receive API credentials
- *   3. /link-set-allowances-prepare - Get SafeTx payload for allowances (Safe only)
- *   4. /link-set-allowances - Submit allowance signature (Safe only)
+ *   3. /link-set-allowances - Submit allowance signature (Safe only)
+ *
+ * Streamlined Flow: For freshly deployed Safes, /link-complete returns safeTxPayload
+ * directly, allowing you to skip /link-set-allowances-prepare.
  *
  * Usage:
  *   # Required: Set the API URL
@@ -103,6 +105,30 @@ interface LinkPrepareResponse {
   };
 }
 
+interface SafeTxPayload {
+  domain: {
+    chainId: number;
+    verifyingContract: string;
+  };
+  types: {
+    SafeTx: Array<{ name: string; type: string }>;
+  };
+  primaryType: string;
+  message: {
+    to: string;
+    value: string;
+    data: string;
+    operation: number;
+    safeTxGas: string;
+    baseGas: string;
+    gasPrice: string;
+    gasToken: string;
+    refundReceiver: string;
+    nonce: number;
+  };
+  messageHash: string;
+}
+
 interface LinkCompleteResponse {
   jsonrpc: "2.0";
   id: string;
@@ -117,6 +143,10 @@ interface LinkCompleteResponse {
     safeAddress?: string;
     safeDeployed?: boolean;
     safeDeployTxHash?: string;
+    // Streamlined flow: For freshly deployed Safes, safeTxPayload is included
+    // allowing clients to skip /link-set-allowances-prepare
+    safeTxPayload?: SafeTxPayload;
+    allowancesToSet?: string[];
   };
   error?: {
     code: number;
@@ -491,6 +521,10 @@ async function main() {
     console.log("  Safe Deployed:", completeResponse.result!.safeDeployed);
     console.log("  Safe Deploy Tx:", completeResponse.result!.safeDeployTxHash);
   }
+  if (completeResponse.result!.safeTxPayload) {
+    console.log("  SafeTxPayload: included (streamlined flow available)");
+    console.log("  Allowances to set:", completeResponse.result!.allowancesToSet);
+  }
   console.log("  API Key:", completeResponse.result!.credentials.apiKey);
   console.log("  API Secret:", completeResponse.result!.credentials.apiSecret.substring(0, 20) + "...");
   console.log("  API Passphrase:", completeResponse.result!.credentials.apiPassphrase.substring(0, 10) + "...");
@@ -499,39 +533,54 @@ async function main() {
   if (WALLET_TYPE === "safe" && TEST_ALLOWANCES) {
     console.log("\n\nStep 4: Testing set-allowances flow...");
 
-    // Step 6a: Call set-allowances-prepare
-    console.log("\nStep 4a: Calling /link-set-allowances-prepare...");
-    const allowancesPrepareResponse = await setAllowancesPrepare(sessionId);
+    // Check if streamlined flow is available (safeTxPayload in link-complete response)
+    let safeTxPayload: SafeTxPayload | undefined;
+    let allowancesToSet: string[] = [];
 
-    if (allowancesPrepareResponse.error) {
-      console.error("\n❌ set-allowances-prepare failed:", allowancesPrepareResponse.error);
-      process.exit(1);
+    if (completeResponse.result!.safeTxPayload) {
+      // Streamlined flow: use safeTxPayload from link-complete (skip /link-set-allowances-prepare)
+      console.log("\n✅ Using streamlined flow (safeTxPayload from /link-complete)");
+      safeTxPayload = completeResponse.result!.safeTxPayload;
+      allowancesToSet = completeResponse.result!.allowancesToSet || [];
+      console.log("  Allowances to set:", allowancesToSet);
+      console.log("  Message hash:", safeTxPayload.messageHash);
+    } else {
+      // Legacy flow: call /link-set-allowances-prepare
+      console.log("\nStep 4a: Calling /link-set-allowances-prepare...");
+      const allowancesPrepareResponse = await setAllowancesPrepare(sessionId);
+
+      if (allowancesPrepareResponse.error) {
+        console.error("\n❌ set-allowances-prepare failed:", allowancesPrepareResponse.error);
+        process.exit(1);
+      }
+
+      safeTxPayload = allowancesPrepareResponse.result!.safeTxPayload;
+      allowancesToSet = allowancesPrepareResponse.result!.allowancesToSet;
+      const nonce = allowancesPrepareResponse.result!.nonce;
+
+      console.log("\n✅ set-allowances-prepare succeeded");
+      console.log("  Safe Address:", allowancesPrepareResponse.result!.safeAddress);
+      console.log("  Allowances to set:", allowancesToSet);
+      console.log("  Nonce:", nonce);
+      console.log("  Message hash:", safeTxPayload.messageHash);
     }
-
-    const { safeTxPayload, allowancesToSet, nonce } = allowancesPrepareResponse.result!;
-
-    console.log("\n✅ set-allowances-prepare succeeded");
-    console.log("  Safe Address:", allowancesPrepareResponse.result!.safeAddress);
-    console.log("  Allowances to set:", allowancesToSet);
-    console.log("  Nonce:", nonce);
-    console.log("  Message hash:", safeTxPayload.messageHash);
 
     if (allowancesToSet.length === 0) {
       console.log("\n✅ All allowances already set - skipping set-allowances");
     } else {
-      // Step 6b: Sign the SafeTx message hash using eth_sign (signMessage)
+      // Sign the SafeTx message hash using eth_sign (signMessage)
       // Note: signMessage applies the "\x19Ethereum Signed Message:\n32" prefix
       console.log("\nStep 4b: Signing SafeTx message hash...");
-      const allowanceSignature = await signMessageHash(wallet, safeTxPayload.messageHash);
+      const allowanceSignature = await signMessageHash(wallet, safeTxPayload!.messageHash);
       console.log("  Allowance signature:", allowanceSignature);
 
       // Verify the signature (using prefixed hash since we used signMessage)
-      const prefixedHash = ethers.utils.hashMessage(ethers.utils.arrayify(safeTxPayload.messageHash));
+      const prefixedHash = ethers.utils.hashMessage(ethers.utils.arrayify(safeTxPayload!.messageHash));
       const recoveredFromHash = ethers.utils.recoverAddress(prefixedHash, allowanceSignature);
       console.log("  Recovered address:", recoveredFromHash);
       console.log("  Signature valid:", recoveredFromHash.toLowerCase() === walletAddress.toLowerCase());
 
-      // Step 6c: Call set-allowances
+      // Call set-allowances
       console.log("\nStep 4c: Calling /link-set-allowances...");
       const allowancesResponse = await setAllowances(sessionId, allowanceSignature);
 
