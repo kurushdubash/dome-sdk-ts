@@ -24,25 +24,25 @@ npm install
 ### EOA Wallet (simple)
 
 ```bash
-API_BASE_URL=https://api.domeapi.io npm test
+API_BASE_URL=https://api.domeapi.io API_KEY=your-api-key npm test
 ```
 
 ### Safe Wallet (with auto-deploy)
 
 ```bash
-API_BASE_URL=https://api.domeapi.io WALLET_TYPE=safe npm test
+API_BASE_URL=https://api.domeapi.io API_KEY=your-api-key WALLET_TYPE=safe npm test
 ```
 
 ### Safe Wallet + Set Allowances
 
 ```bash
-API_BASE_URL=https://api.domeapi.io WALLET_TYPE=safe TEST_ALLOWANCES=true npm test
+API_BASE_URL=https://api.domeapi.io API_KEY=your-api-key WALLET_TYPE=safe TEST_ALLOWANCES=true npm test
 ```
 
 ### Using an Existing Wallet
 
 ```bash
-API_BASE_URL=https://api.domeapi.io PRIVATE_KEY=0x... WALLET_TYPE=safe TEST_ALLOWANCES=true npm test
+API_BASE_URL=https://api.domeapi.io API_KEY=your-api-key PRIVATE_KEY=0x... WALLET_TYPE=safe TEST_ALLOWANCES=true npm test
 ```
 
 ## Environment Variables
@@ -50,6 +50,7 @@ API_BASE_URL=https://api.domeapi.io PRIVATE_KEY=0x... WALLET_TYPE=safe TEST_ALLO
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `API_BASE_URL` | Yes | - | Dome API endpoint |
+| `API_KEY` | Yes | - | Dome API key for authentication |
 | `PRIVATE_KEY` | No | (generates new) | Existing wallet private key |
 | `WALLET_TYPE` | No | `eoa` | `eoa` or `safe` |
 | `TEST_ALLOWANCES` | No | `false` | Set to `true` to test allowance flow |

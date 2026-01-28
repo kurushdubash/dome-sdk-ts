@@ -20,6 +20,7 @@
  *
  * Environment Variables:
  *   API_BASE_URL     - Required. The Dome API endpoint
+ *   API_KEY          - Required. Your Dome API key for authentication
  *   PRIVATE_KEY      - Optional. Use existing wallet instead of generating new one
  *   WALLET_TYPE      - Optional. "eoa" (default) or "safe"
  *   AUTO_DEPLOY_SAFE - Optional. Set to "false" to disable automatic Safe deployment
@@ -36,6 +37,7 @@ config();
 // ============ Configuration ============
 
 const API_BASE_URL = process.env["API_BASE_URL"];
+const API_KEY = process.env["API_KEY"];
 const PRIVATE_KEY = process.env["PRIVATE_KEY"];
 const WALLET_TYPE = (process.env["WALLET_TYPE"] || "eoa") as "eoa" | "safe";
 const CHAIN_ID = parseInt(process.env["CHAIN_ID"] || "137", 10);
@@ -44,9 +46,21 @@ const TEST_ALLOWANCES = process.env["TEST_ALLOWANCES"] === "true";
 
 if (!API_BASE_URL) {
   console.error("Error: API_BASE_URL environment variable is required");
-  console.error("Example: API_BASE_URL=https://api.domeapi.io npm test");
+  console.error("Example: API_BASE_URL=https://api.domeapi.io API_KEY=your-api-key npm test");
   process.exit(1);
 }
+
+if (!API_KEY) {
+  console.error("Error: API_KEY environment variable is required");
+  console.error("Example: API_BASE_URL=https://api.domeapi.io API_KEY=your-api-key npm test");
+  process.exit(1);
+}
+
+// Common headers for all API calls
+const API_HEADERS = {
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${API_KEY}`,
+};
 
 // ============ Types ============
 
@@ -240,7 +254,7 @@ async function linkPrepare(walletAddress: string): Promise<LinkPrepareResponse> 
   console.log("Body:", JSON.stringify(requestBody, null, 2));
 
   const response = await axios.post(url, requestBody, {
-    headers: { "Content-Type": "application/json" },
+    headers: API_HEADERS,
   });
 
   console.log("\n=== LINK-PREPARE RESPONSE ===");
@@ -276,7 +290,7 @@ async function linkComplete(
 
   try {
     const response = await axios.post(url, requestBody, {
-      headers: { "Content-Type": "application/json" },
+      headers: API_HEADERS,
     });
 
     console.log("\n=== LINK-COMPLETE RESPONSE ===");
@@ -312,7 +326,7 @@ async function setAllowancesPrepare(
 
   try {
     const response = await axios.post(url, requestBody, {
-      headers: { "Content-Type": "application/json" },
+      headers: API_HEADERS,
     });
 
     console.log("\n=== SET-ALLOWANCES-PREPARE RESPONSE ===");
@@ -350,7 +364,7 @@ async function setAllowances(
 
   try {
     const response = await axios.post(url, requestBody, {
-      headers: { "Content-Type": "application/json" },
+      headers: API_HEADERS,
     });
 
     console.log("\n=== SET-ALLOWANCES RESPONSE ===");
