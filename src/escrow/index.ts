@@ -110,9 +110,12 @@ export {
   getUsdcAddress,
   getDefaultRpcUrl,
   resolveEscrowConfig,
+  fetchDomeFeeConfig,
+  clearFeeConfigCache,
 } from './config.js';
 
 export type {
   EscrowConfig,
   ResolvedEscrowConfig,
+  DomeFeeConfig,
 } from './config.js';

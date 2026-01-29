@@ -18,7 +18,7 @@
  */
 
 import * as dotenv from 'dotenv';
-import { ethers, Wallet } from 'ethers';
+import { ethers, Wallet, Contract } from 'ethers';
 import {
   generateOrderId,
   verifyOrderId,
@@ -42,6 +42,16 @@ const CONFIG = {
   usdcAddress: process.env.USDC_ADDRESS || USDC_POLYGON,
   userPrivateKey: process.env.USER_PRIVATE_KEY || process.env.PRIVATE_KEY || '',
 };
+
+// Minimal ABI for reading contract constants
+const ESCROW_ABI = [
+  'function domeFeeBps() view returns (uint256)',
+  'function minDomeFee() view returns (uint256)',
+];
+
+// Contract fee configuration (fetched at runtime)
+let contractDomeFeeBps: bigint;
+let contractMinDomeFee: bigint;
 
 interface TestResult {
   name: string;
@@ -77,8 +87,31 @@ function test(name: string, fn: () => any | Promise<any>) {
 
 async function runOfflineTests() {
   log('='.repeat(60));
-  log('  PERMIT OFFLINE TESTS (no network required)');
+  log('  PERMIT TESTS (with contract fee config)');
   log('='.repeat(60));
+
+  // Fetch fee configuration from contract
+  const provider = new ethers.providers.JsonRpcProvider(CONFIG.rpcUrl);
+  const escrow = new Contract(CONFIG.escrowAddress, ESCROW_ABI, provider);
+
+  try {
+    log('\n📡 Fetching fee configuration from contract...');
+    const [domeFeeBps, minDomeFee] = await Promise.all([
+      escrow.domeFeeBps(),
+      escrow.minDomeFee(),
+    ]);
+    
+    contractDomeFeeBps = BigInt(domeFeeBps.toString());
+    contractMinDomeFee = BigInt(minDomeFee.toString());
+    
+    log(`✅ Dome fee: ${contractDomeFeeBps} bps (${Number(contractDomeFeeBps) / 100}%)`);
+    log(`✅ Min dome fee: ${formatUsdc(contractMinDomeFee)} USDC`);
+  } catch (error) {
+    log(`❌ Failed to fetch from contract: ${error instanceof Error ? error.message : String(error)}`);
+    log('⚠️  Falling back to default values (10 bps, $0.01)');
+    contractDomeFeeBps = 10n;
+    contractMinDomeFee = 10_000n;
+  }
 
   // Test 1: Generate Order ID for pullFee
   await test('Generate Order ID for PullFee', () => {
@@ -157,9 +190,9 @@ async function runOfflineTests() {
   // Test 4: Calculate Fees for PullFee
   await test('Calculate Fees for PullFee', () => {
     const orderSize = parseUsdc(100); // $100 order
-    const clientFeeBps = BigInt(50); // 0.50% client fee
+    const clientFeeBps = 50n; // 0.50% client fee
 
-    const fees = calculateFees(orderSize, clientFeeBps);
+    const fees = calculateFees(orderSize, clientFeeBps, contractDomeFeeBps, contractMinDomeFee);
 
     if (fees.domeFee <= BigInt(0)) {
       throw new Error('Dome fee should be positive');
@@ -180,9 +213,9 @@ async function runOfflineTests() {
   // Test 5: Zero client fee calculation
   await test('Zero Client Fee Calculation', () => {
     const orderSize = parseUsdc(50); // $50 order
-    const clientFeeBps = BigInt(0); // No affiliate
+    const clientFeeBps = 0n; // No affiliate
 
-    const fees = calculateFees(orderSize, clientFeeBps);
+    const fees = calculateFees(orderSize, clientFeeBps, contractDomeFeeBps, contractMinDomeFee);
 
     if (fees.clientFee !== BigInt(0)) {
       throw new Error('Client fee should be zero');

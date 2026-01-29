@@ -39,8 +39,6 @@ import {
   USDC_POLYGON,
   CHAIN_ID_POLYGON,
   CHAIN_ID_AMOY,
-  DEFAULT_DOME_FEE_BPS,
-  DEFAULT_MIN_DOME_FEE,
   DEFAULT_CLIENT_FEE_BPS,
   DEFAULT_CLIENT_ADDRESS,
   DEFAULT_DEADLINE_SECONDS,
@@ -52,6 +50,7 @@ import {
   type FeeCalculation,
   type EscrowConfig,
   type ResolvedEscrowConfig,
+  type DomeFeeConfig,
   calculateFees as escrowCalculateFees,
   parseUsdc as escrowParseUsdc,
   formatUsdc as escrowFormatUsdc,
@@ -65,6 +64,8 @@ import {
   getUsdcAddress,
   getDefaultRpcUrl,
   resolveEscrowConfig,
+  fetchDomeFeeConfig,
+  clearFeeConfigCache,
   USDC_AMOY,
 } from '../escrow/index.js';
 
@@ -76,8 +77,6 @@ export {
   HoldState,
   FEE_AUTH_TYPES,
   PERMIT_TYPES,
-  DEFAULT_DOME_FEE_BPS,
-  DEFAULT_MIN_DOME_FEE,
   DEFAULT_CLIENT_FEE_BPS,
   DEFAULT_CLIENT_ADDRESS,
   DEFAULT_DEADLINE_SECONDS,
@@ -85,6 +84,8 @@ export {
   getUsdcAddress,
   getDefaultRpcUrl,
   resolveEscrowConfig,
+  fetchDomeFeeConfig,
+  clearFeeConfigCache,
 };
 
 // Re-export MAX_CLIENT_FEE_BPS from escrow module
@@ -96,6 +97,7 @@ export type {
   FeeCalculation,
   EscrowConfig,
   ResolvedEscrowConfig,
+  DomeFeeConfig,
 };
 
 // ============================================================================
@@ -174,10 +176,9 @@ export interface SignedFeeAuth {
 
 /**
  * Extended place order params with fee escrow options
+ * Note: domeFeeBps is fetched from contract, only client fees can be overridden
  */
 export interface PlaceOrderWithEscrowParams extends PlaceOrderParams {
-  /** Override dome fee basis points for this order */
-  domeFeeBps?: number;
   /** Override client fee basis points for this order */
   clientFeeBps?: number;
   /** Override client address for this order */
@@ -243,13 +244,13 @@ export function getUsdcPermitDomain(chainId: number): {
 
 /**
  * Calculate fees for a given order size
- * Wrapper around escrow module's calculateFees
+ * Note: domeFeeBps and minDomeFee must be provided (fetched from contract)
  */
 export function calculateFees(
   orderSize: bigint,
-  domeFeeBps: number = Number(DEFAULT_DOME_FEE_BPS),
-  clientFeeBps: number = 0,
-  minDomeFee: bigint = DEFAULT_MIN_DOME_FEE
+  domeFeeBps: number,
+  minDomeFee: bigint,
+  clientFeeBps: number = 0
 ): FeeCalculation {
   return escrowCalculateFees(orderSize, BigInt(clientFeeBps), BigInt(domeFeeBps), minDomeFee);
 }
@@ -304,27 +305,28 @@ export function generateOrderId(params: {
  * Polymarket Router with automatic DomeFeeEscrow integration
  *
  * Extends PolymarketRouter to automatically generate and sign fee
- * authorizations for every order placed.
+ * authorizations for every order placed. Dome fee configuration is
+ * fetched from the smart contract automatically.
  *
  * Workflow:
  * 1. User calls placeOrder() with order params
- * 2. Router calculates fee based on order size
- * 3. Router generates unique orderId
- * 4. Router creates fee authorization signature:
+ * 2. Router fetches domeFeeBps and minDomeFee from contract (cached)
+ * 3. Router calculates fee based on order size
+ * 4. Router generates unique orderId
+ * 5. Router creates fee authorization signature:
  *    - EOA: EIP-2612 permit for gasless USDC approval
  *    - Smart Wallet: EIP-1271 compatible signature (requires prior approve())
- * 5. Router submits order with fee auth to Dome server
- * 6. Server calls DomeFeeEscrow.pullFee() to escrow the fee
- * 7. Server places the order on Polymarket CLOB
- * 8. On fill: Server distributes fee to Dome + client
- * 9. On cancel: Server refunds remaining fee to user
+ * 6. Router submits order with fee auth to Dome server
+ * 7. Server calls DomeFeeEscrow.pullFee() to escrow the fee
+ * 8. Server places the order on Polymarket CLOB
+ * 9. On fill: Server distributes fee to Dome + client
+ * 10. On cancel: Server refunds remaining fee to user
  *
  * @example
  * ```typescript
  * const router = new PolymarketEscrowRouter({
  *   apiKey: 'dome-api-key',
  *   escrow: {
- *     domeFeeBps: 10,      // 0.1% dome fee
  *     clientFeeBps: 25,    // 0.25% affiliate fee
  *     clientAddress: '0x...', // affiliate wallet
  *   },
@@ -348,13 +350,14 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
   private readonly escrowConfig: ResolvedEscrowConfig;
   private readonly escrowChainId: number;
   private readonly provider: ethers.providers.Provider;
+  private domeFeeConfig: DomeFeeConfig | null = null;
 
   constructor(config: PolymarketEscrowRouterConfig = {}) {
     super(config);
 
     this.escrowChainId = config.chainId || POLYGON_CHAIN_ID;
     
-    // Resolve escrow config with defaults
+    // Resolve escrow config with defaults (client-side settings only)
     this.escrowConfig = resolveEscrowConfig(config.escrow, this.escrowChainId);
     
     this.provider = new ethers.providers.JsonRpcProvider(
@@ -363,16 +366,43 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
   }
 
   /**
+   * Fetch dome fee configuration from the contract
+   * Results are cached for 5 minutes to minimize RPC calls
+   */
+  async getDomeFeeConfig(): Promise<DomeFeeConfig> {
+    if (!this.domeFeeConfig) {
+      this.domeFeeConfig = await fetchDomeFeeConfig(
+        this.provider,
+        this.escrowConfig.escrowAddress
+      );
+    }
+    return this.domeFeeConfig;
+  }
+
+  /**
+   * Force refresh of dome fee config from contract
+   */
+  async refreshDomeFeeConfig(): Promise<DomeFeeConfig> {
+    clearFeeConfigCache();
+    this.domeFeeConfig = await fetchDomeFeeConfig(
+      this.provider,
+      this.escrowConfig.escrowAddress
+    );
+    return this.domeFeeConfig;
+  }
+
+  /**
    * Places an order on Polymarket with automatic fee escrow
    *
    * This method:
-   * 1. Generates a unique orderId from order parameters
-   * 2. Calculates fees based on order size
-   * 3. Creates fee authorization signature:
+   * 1. Fetches domeFeeBps and minDomeFee from contract (cached)
+   * 2. Generates a unique orderId from order parameters
+   * 3. Calculates fees based on order size
+   * 4. Creates fee authorization signature:
    *    - EOA: EIP-2612 USDC permit (gasless approval)
    *    - Safe: EIP-1271 FeeAuth signature (requires prior approve())
-   * 4. Submits the order with fee auth to Dome server
-   * 5. Server pulls fee to escrow, then places the order
+   * 5. Submits the order with fee auth to Dome server
+   * 6. Server pulls fee to escrow, then places the order
    *
    * On fill: Server distributes fee to Dome + client
    * On cancel: Server refunds remaining fee to user
@@ -402,10 +432,12 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
       walletAddress,
       negRisk = false,
       orderType = 'GTC',
-      domeFeeBps = this.escrowConfig.domeFeeBps,
       clientFeeBps = this.escrowConfig.clientFeeBps,
       clientAddress = this.escrowConfig.clientAddress,
     } = params;
+
+    // Fetch dome fee config from contract (cached)
+    const domeFeeConfig = await this.getDomeFeeConfig();
 
     // Get or create signer
     const actualSigner = this.resolveSignerInternal(signer, privyWalletId, walletAddress);
@@ -442,12 +474,12 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
     // Size is in shares, price is 0-1, so USDC cost = size * price
     const orderSizeUsdc = parseUsdc(size * price);
 
-    // Calculate fees
+    // Calculate fees using contract values
     const fees = calculateFees(
       orderSizeUsdc,
-      domeFeeBps,
-      clientFeeBps,
-      this.escrowConfig.minDomeFee
+      domeFeeConfig.domeFeeBps,
+      domeFeeConfig.minDomeFee,
+      clientFeeBps
     );
 
     // Generate unique orderId
@@ -472,7 +504,7 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
       signer: actualSigner,
       fees,
       orderSize: orderSizeUsdc,
-      domeFeeBps,
+      domeFeeBps: domeFeeConfig.domeFeeBps,
       clientFeeBps,
       deadline,
       isSmartWallet,
@@ -562,7 +594,7 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
   }
 
   /**
-   * Get the current escrow configuration
+   * Get the current escrow configuration (client-side settings)
    */
   getEscrowConfig(): ResolvedEscrowConfig {
     return { ...this.escrowConfig };
@@ -570,19 +602,20 @@ export class PolymarketEscrowRouter extends PolymarketRouter {
 
   /**
    * Calculate the fee for an order
+   * This is an async method because dome fees are fetched from the contract
    */
-  calculateOrderFee(
+  async calculateOrderFee(
     size: number,
     price: number,
-    domeFeeBps?: number,
     clientFeeBps?: number
-  ): FeeCalculation {
+  ): Promise<FeeCalculation> {
+    const domeFeeConfig = await this.getDomeFeeConfig();
     const orderSizeUsdc = parseUsdc(size * price);
     return calculateFees(
       orderSizeUsdc,
-      domeFeeBps ?? this.escrowConfig.domeFeeBps,
-      clientFeeBps ?? this.escrowConfig.clientFeeBps,
-      this.escrowConfig.minDomeFee
+      domeFeeConfig.domeFeeBps,
+      domeFeeConfig.minDomeFee,
+      clientFeeBps ?? this.escrowConfig.clientFeeBps
     );
   }
 

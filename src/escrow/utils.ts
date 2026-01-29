@@ -4,8 +4,6 @@
 
 import { ethers } from 'ethers';
 import {
-  DEFAULT_DOME_FEE_BPS,
-  DEFAULT_MIN_DOME_FEE,
   USDC_DECIMALS,
 } from './constants.js';
 import type { FeeCalculation } from './types.js';
@@ -39,17 +37,18 @@ export function formatBps(bps: bigint | number): string {
 
 /**
  * Compute fee breakdown for an order using contract logic
+ * All fee parameters must be provided (fetched from contract)
  * @param orderSize Order size in USDC (6 decimals)
  * @param clientFeeBps Client fee in basis points
- * @param domeFeeBps Dome fee in basis points
- * @param minDomeFee Minimum dome fee floor
+ * @param domeFeeBps Dome fee in basis points (from contract)
+ * @param minDomeFee Minimum dome fee floor (from contract)
  * @returns Fee calculation
  */
 export function calculateFees(
   orderSize: bigint,
-  clientFeeBps: bigint = 0n,
-  domeFeeBps: bigint = DEFAULT_DOME_FEE_BPS,
-  minDomeFee: bigint = DEFAULT_MIN_DOME_FEE
+  clientFeeBps: bigint,
+  domeFeeBps: bigint,
+  minDomeFee: bigint
 ): FeeCalculation {
   let domeFee = (orderSize * domeFeeBps) / 10000n;
 

@@ -4,13 +4,12 @@
  * Default configuration values and configuration types for the escrow system.
  */
 
+import { ethers } from 'ethers';
 import {
   CHAIN_ID_POLYGON,
   CHAIN_ID_AMOY,
   ESCROW_CONTRACT_POLYGON,
   USDC_POLYGON,
-  DEFAULT_DOME_FEE_BPS,
-  DEFAULT_MIN_DOME_FEE,
   DEFAULT_CLIENT_FEE_BPS,
   DEFAULT_CLIENT_ADDRESS,
 } from './constants.js';
@@ -43,12 +42,11 @@ export const DEFAULT_RPC_URL_AMOY = 'https://rpc-amoy.polygon.technology';
 // ============================================================================
 
 /**
- * Fee escrow configuration
+ * Fee escrow configuration (client-side settings only)
+ * domeFeeBps and minDomeFee are fetched from the contract
  */
 export interface EscrowConfig {
   escrowAddress?: string;
-  domeFeeBps?: number;
-  minDomeFee?: bigint;
   clientFeeBps?: number;
   clientAddress?: string;
   deadlineSeconds?: number;
@@ -58,7 +56,13 @@ export interface EscrowConfig {
 /**
  * Resolved escrow configuration with all required fields
  */
-export type ResolvedEscrowConfig = Required<EscrowConfig>;
+export interface ResolvedEscrowConfig {
+  escrowAddress: string;
+  clientFeeBps: number;
+  clientAddress: string;
+  deadlineSeconds: number;
+  rpcUrl: string;
+}
 
 // ============================================================================
 // Helper Functions
@@ -95,14 +99,81 @@ export function getDefaultRpcUrl(chainId: number): string {
   return RPC_URLS[chainId] ?? DEFAULT_RPC_URL_POLYGON;
 }
 
+// ============================================================================
+// Contract Fee Config Fetching
+// ============================================================================
+
+/** ABI for reading fee config from DomeFeeEscrow contract */
+const ESCROW_FEE_ABI = [
+  'function domeFeeBps() view returns (uint256)',
+  'function minDomeFee() view returns (uint256)',
+];
+
+/**
+ * Dome fee configuration from contract
+ */
+export interface DomeFeeConfig {
+  domeFeeBps: number;
+  minDomeFee: bigint;
+}
+
+/** Cache for contract fee config to avoid repeated RPC calls */
+const feeConfigCache = new Map<string, { config: DomeFeeConfig; timestamp: number }>();
+
+/** Cache TTL in milliseconds (5 minutes) */
+const FEE_CONFIG_CACHE_TTL = 5 * 60 * 1000;
+
+/**
+ * Fetch dome fee configuration from the escrow contract
+ * Results are cached for 5 minutes to minimize RPC calls
+ *
+ * @param provider Ethers provider
+ * @param escrowAddress Escrow contract address
+ * @returns Dome fee config from contract
+ */
+export async function fetchDomeFeeConfig(
+  provider: ethers.providers.Provider,
+  escrowAddress: string
+): Promise<DomeFeeConfig> {
+  const cacheKey = escrowAddress.toLowerCase();
+  const cached = feeConfigCache.get(cacheKey);
+
+  // Return cached value if still valid
+  if (cached && Date.now() - cached.timestamp < FEE_CONFIG_CACHE_TTL) {
+    return cached.config;
+  }
+
+  const contract = new ethers.Contract(escrowAddress, ESCROW_FEE_ABI, provider);
+
+  const [domeFeeBps, minDomeFee] = await Promise.all([
+    contract.domeFeeBps(),
+    contract.minDomeFee(),
+  ]);
+
+  const config: DomeFeeConfig = {
+    domeFeeBps: Number(domeFeeBps),
+    minDomeFee: BigInt(minDomeFee.toString()),
+  };
+
+  // Cache the result
+  feeConfigCache.set(cacheKey, { config, timestamp: Date.now() });
+
+  return config;
+}
+
+/**
+ * Clear the fee config cache (useful for testing or after contract updates)
+ */
+export function clearFeeConfigCache(): void {
+  feeConfigCache.clear();
+}
+
 export function resolveEscrowConfig(
   config: EscrowConfig = {},
   chainId: number
 ): ResolvedEscrowConfig {
   return {
     escrowAddress: config.escrowAddress ?? getEscrowAddress(chainId),
-    domeFeeBps: config.domeFeeBps ?? Number(DEFAULT_DOME_FEE_BPS),
-    minDomeFee: config.minDomeFee ?? DEFAULT_MIN_DOME_FEE,
     clientFeeBps: config.clientFeeBps ?? Number(DEFAULT_CLIENT_FEE_BPS),
     clientAddress: config.clientAddress ?? DEFAULT_CLIENT_ADDRESS,
     deadlineSeconds: config.deadlineSeconds ?? DEFAULT_DEADLINE_SECONDS,

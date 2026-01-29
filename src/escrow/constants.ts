@@ -20,11 +20,6 @@ export const DOMAIN_NAME = 'DomeFeeEscrow';
 /** EIP-712 domain version */
 export const DOMAIN_VERSION = '1';
 
-/** Default Dome fee: 0.1% (10 basis points) */
-export const DEFAULT_DOME_FEE_BPS = 10n;
-
-/** Default minimum Dome fee: $0.01 (10000 with 6 decimals) */
-export const DEFAULT_MIN_DOME_FEE = 10_000n;
 
 /** Default client/affiliate fee: 0% (0 basis points) */
 export const DEFAULT_CLIENT_FEE_BPS = 0n;
