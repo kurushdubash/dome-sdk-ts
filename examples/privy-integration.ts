@@ -15,83 +15,17 @@
  */
 
 import { PrivyClient } from '@privy-io/server-auth';
-import { PolymarketRouter, RouterSigner, Eip712Payload } from '@dome-api/sdk';
+import {
+  PolymarketRouter,
+  RouterSigner,
+  Eip712Payload,
+  createPrivySigner,
+} from '@dome-api/sdk';
+
+// Note: createPrivySigner() is imported from @dome-api/sdk — no manual signer needed.
 
 // ============================================================================
-// Step 1: Create a Privy Signer Adapter
-// ============================================================================
-
-/**
- * Creates a RouterSigner from a Privy user
- *
- * This adapter wraps Privy's authorization key signing to match the
- * RouterSigner interface that the Dome SDK expects.
- *
- * Uses Privy's server-side signing with authorization keys:
- * - No user interaction needed for signing after initial key creation
- * - Signs EIP-712 payloads on the server
- *
- * @param privyClient - Initialized Privy client
- * @param userId - Privy user ID
- * @param walletAddress - User's embedded wallet address from Privy
- * @returns RouterSigner implementation
- */
-async function createPrivySigner(
-  privyClient: PrivyClient,
-  userId: string,
-  walletAddress: string
-): Promise<RouterSigner> {
-  return {
-    async getAddress(): Promise<string> {
-      return walletAddress;
-    },
-
-    async signTypedData(payload: Eip712Payload): Promise<string> {
-      // Use Privy's server-side signing with authorization keys
-      // Reference: https://docs.privy.io/controls/authorization-keys/using-owners/sign/signing-on-the-server
-
-      try {
-        // Request signing through Privy's authorization key API
-        const response = await fetch(
-          `https://auth.privy.io/api/v1/wallets/${walletAddress}/sign_typed_data`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              // Use your Privy authorization key for server-side signing
-              Authorization: `Bearer ${process.env.PRIVY_AUTHORIZATION_KEY}`,
-              // Include user context
-              'privy-app-id': process.env.PRIVY_APP_ID || '',
-              'privy-user-id': userId,
-            },
-            body: JSON.stringify({
-              domain: payload.domain,
-              types: payload.types,
-              primaryType: payload.primaryType,
-              message: payload.message,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Privy signing failed: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const result = await response.json();
-        return result.signature;
-      } catch (error) {
-        throw new Error(
-          `Failed to sign with Privy: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-    },
-  };
-}
-
-// ============================================================================
-// Step 2: Initialize Router and Link User
+// Step 1: Initialize Router and Link User
 // ============================================================================
 
 /**
@@ -112,7 +46,12 @@ async function linkUserToPolymarket(
   // Initialize Privy client
   const privy = new PrivyClient(
     process.env.PRIVY_APP_ID || '',
-    process.env.PRIVY_APP_SECRET || ''
+    process.env.PRIVY_APP_SECRET || '',
+    {
+      walletApi: {
+        authorizationPrivateKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+      },
+    }
   );
 
   // Get user's embedded wallet from Privy
@@ -126,13 +65,14 @@ async function linkUserToPolymarket(
   }
 
   const walletAddress = embeddedWallet.address;
+  const walletId = (embeddedWallet as any).id;
 
-  // Create Privy signer adapter
-  const signer = await createPrivySigner(privy, privyUserId, walletAddress);
+  // Create Privy signer using SDK helper
+  const signer = createPrivySigner(privy, walletId, walletAddress);
 
   // Initialize Dome router
   const router = new PolymarketRouter({
-    baseURL: process.env.DOME_API_URL || 'https://api.domeapi.io/v1',
+    chainId: 137,
     apiKey: process.env.DOME_API_KEY,
   });
 
@@ -156,7 +96,7 @@ async function linkUserToPolymarket(
 }
 
 // ============================================================================
-// Step 3: Place Orders Using API Keys
+// Step 2: Place Orders Using API Keys
 // ============================================================================
 
 /**
@@ -166,7 +106,7 @@ async function linkUserToPolymarket(
  */
 async function placeOrder(userId: string) {
   const router = new PolymarketRouter({
-    baseURL: process.env.DOME_API_URL || 'https://api.domeapi.io/v1',
+    chainId: 137,
     apiKey: process.env.DOME_API_KEY,
   });
 
@@ -184,7 +124,7 @@ async function placeOrder(userId: string) {
 }
 
 // ============================================================================
-// Step 4: Complete Flow Example
+// Step 3: Complete Flow Example
 // ============================================================================
 
 /**
@@ -272,7 +212,7 @@ async function handleLinkUser() {
   }
 
   const router = new PolymarketRouter({
-    baseURL: 'https://api.domeapi.io/v1',
+    chainId: 137,
     apiKey: process.env.NEXT_PUBLIC_DOME_API_KEY,
   });
 
@@ -294,8 +234,7 @@ async function handleLinkUser() {
  * PRIVY_APP_SECRET - Your Privy application secret
  * PRIVY_AUTHORIZATION_KEY - Privy authorization key for server-side signing
  * DOME_API_KEY - Your Dome API key
- * DOME_API_URL - Dome API base URL (defaults to https://api.domeapi.io/v1)
  */
 
 // Export for use in other modules
-export { createPrivySigner, linkUserToPolymarket, placeOrder, completeFlow };
+export { linkUserToPolymarket, placeOrder, completeFlow };

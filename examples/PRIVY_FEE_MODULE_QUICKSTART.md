@@ -4,7 +4,7 @@
 
 This guide shows how to manually integrate fee authorization with Privy, giving you full control over order IDs, fee calculation, and signature timing. For automatic handling, see [ESCROW_ROUTER_QUICKSTART.md](./ESCROW_ROUTER_QUICKSTART.md).
 
-> **Tested**: Run `npx tsx examples/test-privy-fee-module.ts` to verify the integration.
+> **Tested**: Verify the integration by running the Complete Example below with your Privy credentials.
 
 ---
 
@@ -43,13 +43,13 @@ This guide shows how to manually integrate fee authorization with Privy, giving 
 
 ### Fee Structure
 
-| Item                 | Value   | Description                   |
-| -------------------- | ------- | ----------------------------- |
-| **Default Fee Rate** | 0.25%   | 25 basis points of order size |
-| **Your Share**       | 20%     | Of collected fees             |
-| **Dome Share**       | 80%     | Of collected fees             |
-| **Min Fee**          | $0.01   | Floor per order               |
-| **Max Fee**          | $10,000 | Cap per order                 |
+| Item                 | Value   | Description                         |
+| -------------------- | ------- | ----------------------------------- |
+| **Default Fee Rate** | 0.25%   | 25 basis points of order size       |
+| **Dome Amount**      | 0.20%   | 20 bps — signed as `domeAmount`     |
+| **Affiliate Amount** | 0.05%   | 5 bps — signed as `affiliateAmount` |
+| **Min Fee**          | $0.01   | Floor per order                     |
+| **Max Fee**          | $10,000 | Cap per order                       |
 
 ### Example Earnings
 
@@ -72,6 +72,7 @@ You need a Privy account with a server wallet:
 # Required environment variables
 PRIVY_APP_ID=your-app-id
 PRIVY_APP_SECRET=your-app-secret
+PRIVY_AUTHORIZATION_KEY=your-authorization-private-key
 PRIVY_WALLET_ID=your-server-wallet-id
 PRIVY_WALLET_ADDRESS=0x...
 ```
@@ -93,69 +94,41 @@ The escrow utilities are exported as a namespace from the SDK:
 ```typescript
 import { PrivyClient } from '@privy-io/server-auth';
 
-// Import escrow module
+// Import escrow module and SDK helpers
 import {
+  DomeFeeEscrowClient,
+  createPrivySigner,
   generateOrderId,
-  createFeeAuthorization,
-  signFeeAuthorizationWithSigner,
   parseUsdc,
-  calculateFee,
   formatUsdc,
   ESCROW_CONTRACT_POLYGON,
   TypedDataSigner,
-} from '@dome-api/sdk/escrow';
-
-// Or import as namespace
-// import { escrow } from '@dome-api/sdk';
-// const { generateOrderId, ... } = escrow;
+} from '@dome-api/sdk';
 ```
 
 ### Step 2: Initialize Privy Client
 
-For server wallets, you only need app ID and secret:
+For server-side signing, pass the authorization key:
 
 ```typescript
 const privy = new PrivyClient(
   process.env.PRIVY_APP_ID!,
-  process.env.PRIVY_APP_SECRET!
+  process.env.PRIVY_APP_SECRET!,
+  {
+    walletApi: {
+      authorizationPrivateKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+    },
+  }
 );
 ```
 
-### Step 3: Create TypedDataSigner from Privy
+### Step 3: Create a Signer from Privy
 
-The fee authorization requires a `TypedDataSigner`. Here's how to create one:
+The fee authorization requires a `TypedDataSigner`. Use `createPrivySigner()` from the SDK:
 
 ```typescript
-function createPrivyTypedDataSigner(
-  privy: PrivyClient,
-  walletId: string,
-  walletAddress: string
-): TypedDataSigner {
-  return {
-    async getAddress(): Promise<string> {
-      return walletAddress;
-    },
-
-    async signTypedData(params: {
-      domain: any;
-      types: any;
-      primaryType: string;
-      message: any;
-    }): Promise<string> {
-      const { signature } = await privy.walletApi.ethereum.signTypedData({
-        walletId,
-        typedData: {
-          domain: params.domain,
-          types: params.types,
-          primaryType: params.primaryType,
-          message: params.message,
-        },
-      });
-
-      return signature;
-    },
-  };
-}
+// createPrivySigner() returns a TypedDataSigner-compatible signer
+const signer = createPrivySigner(privy, walletId, walletAddress);
 ```
 
 ### Step 4: Generate Order ID and Sign Fee Authorization
@@ -188,32 +161,28 @@ async function signFeeAuth(
     timestamp,
   });
 
-  // 3. Calculate fee (0.25% = 25 bps)
-  const feeAmount = calculateFee(orderCostUsdc, 25n);
+  // 3. Calculate split fees (20 bps Dome + 5 bps Affiliate = 25 bps total)
+  const domeAmount = (orderCostUsdc * 20n) / 10000n;
+  const affiliateAmount = (orderCostUsdc * 5n) / 10000n;
 
   console.log(`Order cost: $${formatUsdc(orderCostUsdc)}`);
-  console.log(`Fee: $${formatUsdc(feeAmount)}`);
-  console.log(`Your share (20%): $${formatUsdc((feeAmount * 2000n) / 10000n)}`);
+  console.log(`Dome fee: $${formatUsdc(domeAmount)}`);
+  console.log(`Affiliate fee: $${formatUsdc(affiliateAmount)}`);
 
-  // 4. Create fee authorization
-  const feeAuth = createFeeAuthorization(
-    orderId,
-    walletAddress,
-    feeAmount,
-    3600 // deadline: 1 hour
-  );
+  // 4. Create escrow client and signer, then sign
+  const escrowClient = new DomeFeeEscrowClient({
+    provider: null as any, // Not needed for signing-only operations
+    contractAddress: ESCROW_CONTRACT_POLYGON,
+    chainId: 137,
+  });
+  const signer = createPrivySigner(privy, walletId, walletAddress);
 
-  // 5. Create signer and sign
-  const signer = createPrivyTypedDataSigner(privy, walletId, walletAddress);
-
-  const signedAuth = await signFeeAuthorizationWithSigner(
+  const { auth, signature } = await escrowClient.signOrderFeeAuthWithSigner(
     signer,
-    ESCROW_CONTRACT_POLYGON,
-    feeAuth,
-    137 // Polygon chain ID
+    { orderId, domeAmount, affiliateAmount, deadline: 3600 }
   );
 
-  return signedAuth;
+  return { auth, signature };
 }
 ```
 
@@ -228,47 +197,32 @@ Here's a full working example tested with real Privy credentials:
 import 'dotenv/config';
 import { PrivyClient } from '@privy-io/server-auth';
 import {
+  DomeFeeEscrowClient,
+  createPrivySigner,
   generateOrderId,
-  createFeeAuthorization,
-  signFeeAuthorizationWithSigner,
   parseUsdc,
-  calculateFee,
   formatUsdc,
   ESCROW_CONTRACT_POLYGON,
-  TypedDataSigner,
-} from '@dome-api/sdk/escrow';
+} from '@dome-api/sdk';
 
 // Configuration
 const config = {
   privyAppId: process.env.PRIVY_APP_ID!,
   privyAppSecret: process.env.PRIVY_APP_SECRET!,
+  privyAuthKey: process.env.PRIVY_AUTHORIZATION_KEY!,
   walletId: process.env.PRIVY_WALLET_ID!,
   walletAddress: process.env.PRIVY_WALLET_ADDRESS!,
 };
 
-// Create TypedDataSigner from Privy
-function createPrivySigner(
-  privy: PrivyClient,
-  walletId: string,
-  walletAddress: string
-): TypedDataSigner {
-  return {
-    getAddress: async () => walletAddress,
-    signTypedData: async params => {
-      const { signature } = await privy.walletApi.ethereum.signTypedData({
-        walletId,
-        typedData: params,
-      });
-      return signature;
-    },
-  };
-}
-
 async function main() {
   console.log('Privy Fee Module Test\n');
 
-  // Initialize Privy
-  const privy = new PrivyClient(config.privyAppId, config.privyAppSecret);
+  // Initialize Privy with authorization key for server-side signing
+  const privy = new PrivyClient(config.privyAppId, config.privyAppSecret, {
+    walletApi: {
+      authorizationPrivateKey: config.privyAuthKey,
+    },
+  });
   console.log(`Wallet: ${config.walletAddress}`);
 
   // Order parameters
@@ -296,21 +250,20 @@ async function main() {
 
   console.log(`Order ID: ${orderId.substring(0, 18)}...`);
 
-  // Calculate fee
-  const feeAmount = calculateFee(orderCost, 25n);
-  const affiliateShare = (feeAmount * 2000n) / 10000n;
+  // Calculate split fees (20 bps Dome + 5 bps Affiliate)
+  const domeAmount = (orderCost * 20n) / 10000n;
+  const affiliateAmount = (orderCost * 5n) / 10000n;
 
   console.log(`Order cost: $${formatUsdc(orderCost)}`);
-  console.log(`Fee: $${formatUsdc(feeAmount)}`);
-  console.log(`Affiliate share: $${formatUsdc(affiliateShare)}`);
+  console.log(`Dome fee: $${formatUsdc(domeAmount)}`);
+  console.log(`Affiliate fee: $${formatUsdc(affiliateAmount)}`);
 
-  // Create and sign fee authorization
-  const feeAuth = createFeeAuthorization(
-    orderId,
-    config.walletAddress,
-    feeAmount,
-    3600
-  );
+  // Create escrow client and signer
+  const escrowClient = new DomeFeeEscrowClient({
+    provider: null as any, // Not needed for signing-only operations
+    contractAddress: ESCROW_CONTRACT_POLYGON,
+    chainId: 137,
+  });
   const signer = createPrivySigner(
     privy,
     config.walletId,
@@ -318,14 +271,12 @@ async function main() {
   );
 
   console.log('\nSigning with Privy...');
-  const signedAuth = await signFeeAuthorizationWithSigner(
+  const { auth, signature } = await escrowClient.signOrderFeeAuthWithSigner(
     signer,
-    ESCROW_CONTRACT_POLYGON,
-    feeAuth,
-    137
+    { orderId, domeAmount, affiliateAmount, deadline: 3600 }
   );
 
-  console.log(`Signature: ${signedAuth.signature.substring(0, 20)}...`);
+  console.log(`Signature: ${signature.substring(0, 20)}...`);
 
   // Prepare API payload
   const apiPayload = {
@@ -336,11 +287,13 @@ async function main() {
       price: order.price,
     },
     feeAuth: {
-      orderId: signedAuth.orderId,
-      payer: signedAuth.payer,
-      feeAmount: signedAuth.feeAmount.toString(),
-      deadline: signedAuth.deadline.toString(),
-      signature: signedAuth.signature,
+      orderId: auth.orderId,
+      payer: auth.payer,
+      domeAmount: auth.domeAmount.toString(),
+      affiliateAmount: auth.affiliateAmount.toString(),
+      chainId: auth.chainId.toString(),
+      deadline: auth.deadline.toString(),
+      signature,
     },
   };
 
@@ -357,6 +310,7 @@ main().catch(console.error);
 # Set environment variables
 export PRIVY_APP_ID="your-app-id"
 export PRIVY_APP_SECRET="your-app-secret"
+export PRIVY_AUTHORIZATION_KEY="your-authorization-private-key"
 export PRIVY_WALLET_ID="your-wallet-id"
 export PRIVY_WALLET_ADDRESS="0x..."
 
@@ -381,7 +335,9 @@ interface OrderWithFeeAuth {
   feeAuth: {
     orderId: string; // bytes32 hex string
     payer: string; // Wallet address
-    feeAmount: string; // USDC amount (6 decimals) as string
+    domeAmount: string; // Dome fee in USDC (6 decimals) as string
+    affiliateAmount: string; // Affiliate fee in USDC (6 decimals) as string
+    chainId: string; // Chain ID as string (e.g. "137")
     deadline: string; // Unix timestamp as string
     signature: string; // 65-byte signature (0x-prefixed)
   };
@@ -429,71 +385,34 @@ async function approveEscrow(privy: PrivyClient, walletId: string) {
 ## Fee Calculation Reference
 
 ```typescript
-import { parseUsdc, calculateFee, formatUsdc } from '@dome-api/sdk/escrow';
+import { parseUsdc, formatUsdc } from '@dome-api/sdk';
 
 // Order: 50 shares at $0.70 = $35 cost
 const orderCost = parseUsdc(35); // 35000000n
 
-// Fee: 0.25% of $35 = $0.0875
-const fee = calculateFee(orderCost, 25n); // 87500n
+// Dome fee: 20 bps (0.20%) of $35 = $0.07
+const domeAmount = (orderCost * 20n) / 10000n; // 70000n
 
-console.log(`Fee: $${formatUsdc(fee)}`); // "0.0875"
+// Affiliate fee: 5 bps (0.05%) of $35 = $0.0175
+const affiliateAmount = (orderCost * 5n) / 10000n; // 17500n
 
-// Affiliate share: 20% of $0.0875 = $0.0175
-const affiliateShare = (fee * 2000n) / 10000n; // 17500n
-console.log(`Your share: $${formatUsdc(affiliateShare)}`); // "0.0175"
+console.log(`Dome fee: $${formatUsdc(domeAmount)}`); // "0.07"
+console.log(`Affiliate fee: $${formatUsdc(affiliateAmount)}`); // "0.0175"
+console.log(`Total fee: $${formatUsdc(domeAmount + affiliateAmount)}`); // "0.0875"
 ```
 
 ---
 
 ## Testing
 
-Run the included test script to verify your setup:
+To verify your setup, save the Complete Example above as `privy-fee-signing.ts` and run it:
 
 ```bash
-cd dome-sdk-ts-pr
-
-# With .env file
-npx tsx examples/test-privy-fee-module.ts
-
-# Or with environment variables
-export PRIVY_APP_ID="..."
-export PRIVY_APP_SECRET="..."
-export PRIVY_WALLET_ID="..."
-export PRIVY_WALLET_ADDRESS="..."
-npx tsx examples/test-privy-fee-module.ts
+# With .env file containing your Privy credentials
+npx tsx privy-fee-signing.ts
 ```
 
-Expected output:
-
-```
-🧪 Privy Fee Module Integration Test
-
-============================================================
-  OFFLINE TESTS (Escrow Module)
-============================================================
-
-📋 Generate Order ID
-   ✅ PASSED
-
-📋 Calculate Fee (0.25% of $100)
-   ✅ PASSED
-   {"orderSize":"$100.0","feeBps":"0.25%","fee":"$0.25","affiliateShare":"$0.05"}
-
-...
-
-============================================================
-  PRIVY INTEGRATION TESTS
-============================================================
-
-📋 Sign Fee Authorization with Privy
-   ✅ PASSED
-
-📋 Full Order Flow Simulation
-   ✅ PASSED
-
-🎉 All tests passed!
-```
+A successful run will output the generated order ID, fee amounts, Privy signature, and the formatted API payload ready to submit to the Dome API.
 
 ---
 

@@ -1131,31 +1131,54 @@ export interface ServerCancelOrderResponse {
 // ===== Claim Winnings Types =====
 
 /**
- * Parameters for claiming winnings via Dome API
+ * Parameters for claiming winnings via Dome API.
+ *
+ * Two flows are supported:
+ * - EOA: user pre-signs a redeemPositions() CTF transaction offline and passes signedRedeemTx
+ * - Privy: user passes privyWalletId, conditionId, outcomeIndex and Dome builds/submits via Privy API
  */
 export interface ClaimWinningsParams {
-  /** Wallet address claiming winnings */
-  walletAddress: string;
-  /** Wallet address the CLOB credentials are registered for */
+  /** Position ID (bytes32 hex string) — primary identifier for this claim */
+  positionId: string;
+  /** Wallet type determines the redemption flow */
+  walletType: 'eoa' | 'privy';
+  /** Payer address (EOA or Privy wallet that holds the tokens) */
+  payerAddress: string;
+  /** Signer address (EOA that signed the perf fee auth) */
   signerAddress: string;
-  /** Condition ID of the resolved market */
-  conditionId: string;
-  /** CLOB API credentials */
-  credentials: PolymarketCredentials;
-  /** Performance fee authorization for escrow V2 (optional) */
-  performanceFeeAuth?: PerformanceFeeAuthorizationParams;
+  /** Performance fee authorization (signed by user) */
+  performanceFeeAuth: PerformanceFeeAuthorizationParams;
+
+  // EOA-only: pre-signed redeemPositions() transaction
+  /** Serialized signed transaction (hex string). Required for walletType: 'eoa'. */
+  signedRedeemTx?: string;
+
+  // Privy-only fields
+  /** Privy wallet ID. Required for walletType: 'privy'. */
+  privyWalletId?: string;
+  /** Condition ID of the resolved market. Required for walletType: 'privy'. */
+  conditionId?: string;
+  /** Winning outcome index (0 or 1). Required for walletType: 'privy'. */
+  outcomeIndex?: number;
+
+  /** Optional affiliate address override */
+  affiliate?: string;
 }
 
 /**
- * Request to claim winnings via Dome server
+ * Request to claim winnings via Dome server (matches proxy ClaimWinningsRequest)
  */
 export interface ServerClaimWinningsRequest {
-  walletAddress: string;
+  positionId: string;
+  walletType: 'eoa' | 'privy';
+  payerAddress: string;
   signerAddress: string;
-  conditionId: string;
-  credentials: PolymarketCredentials;
-  /** Performance fee authorization for escrow V2 (optional) */
-  performanceFeeAuth?: PerformanceFeeAuthorizationParams;
+  performanceFeeAuth: PerformanceFeeAuthorizationParams;
+  signedRedeemTx?: string;
+  privyWalletId?: string;
+  conditionId?: string;
+  outcomeIndex?: number;
+  affiliate?: string;
 }
 
 /**
@@ -1163,16 +1186,16 @@ export interface ServerClaimWinningsRequest {
  */
 export interface ServerClaimWinningsResult {
   success: true;
-  walletAddress: string;
-  conditionId: string;
+  positionId: string;
+  walletType: 'eoa' | 'privy';
+  feePulled?: boolean;
+  domeAmount?: string;
+  affiliateAmount?: string;
+  pullFeeTxHash?: string;
+  distributeTxHash?: string;
+  redeemed?: boolean;
   claimTxHash?: string;
-  amount?: string;
-  escrow?: {
-    perfFeeTriggered: boolean;
-    perfFeeTxHash?: string;
-    perfFeeAmount?: string;
-  };
-  latencyMs: number;
+  status: 'completed' | 'failed';
 }
 
 /**
@@ -1180,16 +1203,16 @@ export interface ServerClaimWinningsResult {
  */
 export interface ServerClaimWinningsResponse {
   success?: boolean;
-  walletAddress?: string;
-  conditionId?: string;
+  positionId?: string;
+  walletType?: 'eoa' | 'privy';
+  feePulled?: boolean;
+  domeAmount?: string;
+  affiliateAmount?: string;
+  pullFeeTxHash?: string;
+  distributeTxHash?: string;
+  redeemed?: boolean;
   claimTxHash?: string;
-  amount?: string;
-  escrow?: {
-    perfFeeTriggered: boolean;
-    perfFeeTxHash?: string;
-    perfFeeAmount?: string;
-  };
+  status?: 'completed' | 'failed';
   error?: string;
   message?: string;
-  latencyMs?: number;
 }

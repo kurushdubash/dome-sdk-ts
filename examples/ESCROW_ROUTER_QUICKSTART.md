@@ -408,10 +408,11 @@ try {
 ```typescript
 // 10+ lines of setup per order
 const orderId = generateOrderId({ ... });
-const feeAmount = calculateFee(parseUsdc(size), feeBps);
-const feeAuth = createFeeAuthorization(orderId, payer, feeAmount, deadline);
-const signer = createPrivyFeeAuthSigner(privy, walletId, address);
-const signedAuth = await signFeeAuthorizationWithSigner(signer, escrow, feeAuth, chainId);
+const domeAmount = (orderCost * 20n) / 10000n;
+const affiliateAmount = (orderCost * 5n) / 10000n;
+const escrowClient = new DomeFeeEscrowClient({ provider, contractAddress, chainId: 137 });
+const signer = createPrivySigner(privy, walletId, address);
+const { auth, signature } = await escrowClient.signOrderFeeAuthWithSigner(signer, { orderId, domeAmount, affiliateAmount, deadline: 3600 });
 await router.placeOrder({ ..., feeAuth: { ... } }, credentials);
 ```
 

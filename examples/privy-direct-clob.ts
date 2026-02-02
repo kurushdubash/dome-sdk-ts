@@ -1,5 +1,5 @@
 /**
- * Privy + Direct Polymarket CLOB Integration (v0)
+ * Privy + Direct Polymarket CLOB Integration
  *
  * This example shows how to use Privy with the Dome SDK to trade on Polymarket
  * using direct CLOB integration (no Dome backend required).
@@ -19,64 +19,13 @@ import { PrivyClient } from '@privy-io/server-auth';
 import {
   PolymarketRouter,
   PolymarketCredentials,
-  RouterSigner,
-  Eip712Payload,
+  createPrivySigner,
 } from '@dome-api/sdk';
 
-// ============================================================================
-// Step 1: Create Privy Signer for Server-Side Signing
-// ============================================================================
-
-/**
- * Creates a RouterSigner using Privy's server-side signing
- *
- * This uses Privy authorization keys to sign on behalf of the user
- * without requiring active user interaction for each signature.
- */
-async function createPrivySigner(
-  privyUserId: string,
-  walletAddress: string
-): Promise<RouterSigner> {
-  return {
-    async getAddress(): Promise<string> {
-      return walletAddress;
-    },
-
-    async signTypedData(payload: Eip712Payload): Promise<string> {
-      // Use Privy's authorization key API for server-side signing
-      const response = await fetch(
-        `https://auth.privy.io/api/v1/wallets/${walletAddress}/sign_typed_data`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.PRIVY_AUTHORIZATION_KEY}`,
-            'privy-app-id': process.env.PRIVY_APP_ID || '',
-            'privy-user-id': privyUserId,
-          },
-          body: JSON.stringify({
-            domain: payload.domain,
-            types: payload.types,
-            primaryType: payload.primaryType,
-            message: payload.message,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Privy signing failed: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const result = await response.json();
-      return result.signature;
-    },
-  };
-}
+// Note: createPrivySigner() is imported from @dome-api/sdk — no manual signer needed.
 
 // ============================================================================
-// Step 2: Link User to Polymarket (ONE-TIME SETUP)
+// Step 1: Link User to Polymarket (ONE-TIME SETUP)
 // ============================================================================
 
 /**
@@ -93,7 +42,12 @@ async function linkUserToPolymarket(
   // Initialize Privy client
   const privy = new PrivyClient(
     process.env.PRIVY_APP_ID || '',
-    process.env.PRIVY_APP_SECRET || ''
+    process.env.PRIVY_APP_SECRET || '',
+    {
+      walletApi: {
+        authorizationPrivateKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+      },
+    }
   );
 
   // Get user's embedded wallet from Privy
@@ -107,10 +61,11 @@ async function linkUserToPolymarket(
   }
 
   const walletAddress = embeddedWallet.address;
+  const walletId = (embeddedWallet as any).id;
   console.log(`✅ Wallet address: ${walletAddress}`);
 
-  // Create Privy signer
-  const signer = await createPrivySigner(privyUserId, walletAddress);
+  // Create Privy signer using SDK helper
+  const signer = createPrivySigner(privy, walletId, walletAddress);
   console.log('✅ Privy signer created');
 
   // Initialize Polymarket router
@@ -140,7 +95,7 @@ async function linkUserToPolymarket(
 }
 
 // ============================================================================
-// Step 3: Trade on Polymarket (NO SIGNATURES NEEDED!)
+// Step 2: Trade on Polymarket (NO SIGNATURES NEEDED!)
 // ============================================================================
 
 /**
@@ -193,7 +148,12 @@ async function completeFlow() {
     // In production, you'd use your authenticated user
     const privy = new PrivyClient(
       process.env.PRIVY_APP_ID || '',
-      process.env.PRIVY_APP_SECRET || ''
+      process.env.PRIVY_APP_SECRET || '',
+      {
+        walletApi: {
+          authorizationPrivateKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+        },
+      }
     );
 
     console.log('1️⃣  Creating Privy test user...');
@@ -231,7 +191,7 @@ async function completeFlow() {
     console.log('• User signed ONCE (server-side with Privy)');
     console.log('• Created Polymarket CLOB API credentials');
     console.log('• Placed multiple orders without signatures');
-    console.log('• No Dome backend required for v0!');
+    console.log('• No Dome backend required!');
     console.log('• Credentials stored for future trading\n');
   } catch (error) {
     console.error('\n❌ Error:', error);
@@ -295,7 +255,6 @@ if (require.main === module) {
 
 // Export for use in other modules
 export {
-  createPrivySigner,
   linkUserToPolymarket,
   placeOrder,
   completeFlow,

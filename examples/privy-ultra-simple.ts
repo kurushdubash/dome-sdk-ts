@@ -1,11 +1,16 @@
 /**
  * Ultra-Simple Privy + Polymarket Example
  *
- * This shows the SIMPLEST possible integration - no manual signer creation needed!
+ * This shows the SIMPLEST possible integration using createPrivySigner() from the SDK.
  */
 
 import 'dotenv/config';
-import { PolymarketRouter } from '../src';
+import {
+  PolymarketRouter,
+  PolymarketCredentials,
+  createPrivySigner,
+} from '../src';
+import { PrivyClient } from '@privy-io/server-auth';
 
 async function main() {
   console.log('🧪 Ultra-Simple Privy + Polymarket Integration\n');
@@ -27,15 +32,27 @@ async function main() {
     },
   });
 
-  // Step 2: Link user (one-time)
+  // Step 2: Create signer and link user (one-time)
+  const privy = new PrivyClient(
+    process.env.PRIVY_APP_ID!,
+    process.env.PRIVY_APP_SECRET!,
+    {
+      walletApi: {
+        authorizationPrivateKey: process.env.PRIVY_AUTHORIZATION_KEY!,
+      },
+    }
+  );
+  const signer = createPrivySigner(
+    privy,
+    user.privyWalletId,
+    user.walletAddress
+  );
+
   console.log('Linking user...');
-  const credentials = await router.linkUser({
+  const credentials = (await router.linkUser({
     userId: user.id,
-    signer: router['createPrivySignerFromWallet'](
-      user.privyWalletId,
-      user.walletAddress
-    ),
-  });
+    signer,
+  })) as PolymarketCredentials;
   console.log('✅ User linked\n');
 
   // Step 3: Place order - NO SIGNER NEEDED!
@@ -65,9 +82,11 @@ async function main() {
   }
 
   console.log('Summary:');
-  console.log('  • Pass Privy config to router once');
-  console.log('  • Just pass wallet ID + address to placeOrder');
-  console.log('  • No manual signer creation!');
+  console.log(
+    '  • Create a PrivyClient and use createPrivySigner() for linking'
+  );
+  console.log('  • Pass wallet ID + address to placeOrder');
+  console.log('  • Subsequent orders use API keys — no wallet signatures');
 }
 
 main();

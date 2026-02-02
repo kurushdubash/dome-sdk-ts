@@ -114,8 +114,8 @@ interface AllowanceCheckResult {
   };
 }
 
-// Dome API endpoint (hardcoded, same as other SDK endpoints)
-const DOME_API_ENDPOINT = 'https://api.domeapi.io/v1';
+// Dome API endpoint default
+const DEFAULT_DOME_API_ENDPOINT = 'https://api.domeapi.io/v1';
 
 export class PolymarketRouter {
   private readonly chainId: number;
@@ -603,14 +603,17 @@ export class PolymarketRouter {
     };
 
     // Submit to Dome server
-    const response = await fetch(`${DOME_API_ENDPOINT}/polymarket/placeOrder`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(request),
-    });
+    const response = await fetch(
+      `${DEFAULT_DOME_API_ENDPOINT}/polymarket/placeOrder`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(request),
+      }
+    );
 
     if (!response.ok) {
       // Try to get error details from response body
@@ -826,7 +829,7 @@ export class PolymarketRouter {
     };
 
     const response = await fetch(
-      `${DOME_API_ENDPOINT}/polymarket/cancelOrder`,
+      `${DEFAULT_DOME_API_ENDPOINT}/polymarket/cancelOrder`,
       {
         method: 'POST',
         headers: {
@@ -868,45 +871,42 @@ export class PolymarketRouter {
    * Claim winnings from a resolved market via Dome API
    *
    * This redeems winning position tokens for USDC and triggers any
-   * performance fee collection if configured. If using fee escrow V2,
-   * include a signed performanceFeeAuth to authorize the performance fee.
+   * performance fee collection if configured.
+   *
+   * Two flows are supported:
+   * - **EOA**: Pass `walletType: 'eoa'` with a pre-signed `signedRedeemTx`
+   * - **Privy**: Pass `walletType: 'privy'` with `privyWalletId`, `conditionId`, `outcomeIndex`
+   *
+   * Auth is via Bearer token header (no credentials in body).
    *
    * @param params - Claim winnings parameters
-   * @returns Claim result including transaction hash and performance fee info
+   * @returns Claim result including transaction hash and fee info
    *
    * @example
    * ```typescript
-   * // Basic claim (server handles performance fee if configured)
+   * // EOA claim with pre-signed redeem transaction
    * const result = await router.claimWinnings({
-   *   walletAddress: '0xabc...',
+   *   positionId: '0xabc...',
+   *   walletType: 'eoa',
+   *   payerAddress: '0xabc...',
    *   signerAddress: '0xabc...',
-   *   conditionId: '0x1234...',
-   *   credentials: {
-   *     apiKey: 'key',
-   *     apiSecret: 'secret',
-   *     apiPassphrase: 'passphrase',
-   *   },
+   *   signedRedeemTx: '0x...',      // pre-signed redeemPositions tx
+   *   performanceFeeAuth: { ... },
    * });
    *
-   * // With performance fee authorization (V2 escrow)
-   * const resultWithAuth = await router.claimWinnings({
-   *   walletAddress: '0xabc...',
+   * // Privy claim — Dome builds and submits the redeem tx
+   * const privyResult = await router.claimWinnings({
+   *   positionId: '0xabc...',
+   *   walletType: 'privy',
+   *   payerAddress: '0xabc...',
    *   signerAddress: '0xabc...',
+   *   privyWalletId: 'wallet-id',
    *   conditionId: '0x1234...',
-   *   credentials: { apiKey, apiSecret, apiPassphrase },
-   *   performanceFeeAuth: {
-   *     positionId: '0x...',
-   *     payer: '0xabc...',
-   *     expectedWinnings: '1000000000', // 1000 USDC
-   *     domeAmount: '40000000',         // 40 USDC (4%)
-   *     affiliateAmount: '10000000',    // 10 USDC (1%)
-   *     chainId: 137,
-   *     deadline: Math.floor(Date.now() / 1000) + 3600,
-   *     signature: '0x...',
-   *   },
+   *   outcomeIndex: 1,
+   *   performanceFeeAuth: { ... },
    * });
+   * console.log('Status:', result.status);
    * console.log('Claim TX:', result.claimTxHash);
-   * console.log('Perf fee:', result.escrow?.perfFeeAmount);
    * ```
    */
   async claimWinnings(
@@ -917,27 +917,33 @@ export class PolymarketRouter {
     }
 
     const {
-      walletAddress,
+      positionId,
+      walletType,
+      payerAddress,
       signerAddress,
-      conditionId,
-      credentials,
       performanceFeeAuth,
+      signedRedeemTx,
+      privyWalletId,
+      conditionId,
+      outcomeIndex,
+      affiliate,
     } = params;
 
     const request: ServerClaimWinningsRequest = {
-      walletAddress,
+      positionId,
+      walletType,
+      payerAddress,
       signerAddress,
-      conditionId,
-      credentials: {
-        apiKey: credentials.apiKey,
-        apiSecret: credentials.apiSecret,
-        apiPassphrase: credentials.apiPassphrase,
-      },
-      ...(performanceFeeAuth && { performanceFeeAuth }),
+      performanceFeeAuth,
+      ...(signedRedeemTx !== undefined && { signedRedeemTx }),
+      ...(privyWalletId !== undefined && { privyWalletId }),
+      ...(conditionId !== undefined && { conditionId }),
+      ...(outcomeIndex !== undefined && { outcomeIndex }),
+      ...(affiliate !== undefined && { affiliate }),
     };
 
     const response = await fetch(
-      `${DOME_API_ENDPOINT}/polymarket/claimWinnings`,
+      `${DEFAULT_DOME_API_ENDPOINT}/polymarket/claimWinnings`,
       {
         method: 'POST',
         headers: {
