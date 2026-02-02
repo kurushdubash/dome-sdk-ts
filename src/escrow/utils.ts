@@ -27,9 +27,17 @@ export function formatUsdc(amount: bigint): string {
 
 /**
  * Parse human readable amount to USDC (6 decimals)
+ *
+ * Handles JavaScript floating-point precision issues by rounding
+ * to 6 decimal places before parsing.
  */
 export function parseUsdc(amount: string | number): bigint {
-  return BigInt(ethers.utils.parseUnits(amount.toString(), 6).toString());
+  // Round to 6 decimal places to avoid floating-point precision issues
+  // e.g., 150 * 0.007 = 1.0500000000000003 in JS, which would fail parseUnits
+  const rounded = Math.round(Number(amount) * 1e6) / 1e6;
+  // Use toFixed to ensure proper decimal string representation
+  const fixedStr = rounded.toFixed(6);
+  return BigInt(ethers.utils.parseUnits(fixedStr, 6).toString());
 }
 
 /**
