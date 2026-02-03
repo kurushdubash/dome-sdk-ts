@@ -57,8 +57,7 @@ export interface EscrowConfig {
 /**
  * Extended router config with escrow settings
  */
-export interface PolymarketRouterWithEscrowConfig
-  extends PolymarketRouterConfig {
+export interface PolymarketRouterWithEscrowConfig extends PolymarketRouterConfig {
   escrow?: EscrowConfig;
 }
 
@@ -239,8 +238,8 @@ export class PolymarketRouterWithEscrow extends PolymarketRouter {
         payer: orderFeeAuth.payer,
         domeAmount: orderFeeAuth.domeAmount.toString(),
         affiliateAmount: orderFeeAuth.affiliateAmount.toString(),
-        chainId: orderFeeAuth.chainId,
-        deadline: orderFeeAuth.deadline,
+        chainId: orderFeeAuth.chainId.toString(),
+        deadline: orderFeeAuth.deadline.toString(),
       },
     });
 
