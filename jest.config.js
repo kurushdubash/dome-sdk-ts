@@ -1,5 +1,10 @@
 module.exports = {
   preset: 'ts-jest',
+  globals: {
+    'ts-jest': {
+      tsconfig: '<rootDir>/tsconfig.test.json',
+    },
+  },
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   // Only run files ending with .test.ts or .spec.ts (excludes integration-test.ts)
